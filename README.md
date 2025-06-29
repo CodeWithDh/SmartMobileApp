@@ -1,2 +1,2 @@
-# SmartMobileApp
-Smart Mobile  Web App - Management System for mobile Shop 
+# Email App Password
+fwkh fqnq szje rife
