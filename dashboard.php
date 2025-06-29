@@ -227,7 +227,7 @@
         <div class="top-card">
             <h4>Return</h4>
             <p>Return Mobile</p>
-            <a href="soldList.php">Go</a>
+            <a href="returnList.php">Go</a>
         </div>
     </div>
     <?php
