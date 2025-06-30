@@ -1,4 +1,6 @@
+<?php include 'auth.php'; ?>
 <?php include 'components/navbar.php'; ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

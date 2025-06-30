@@ -53,8 +53,9 @@
     }
 
     .sidebar .logout {
-        margin-top: auto;
-        padding-top: 40px;
+        font-size: 1.3rem;
+        font-weight: bold;
+        
     }
 
     /* Toggle Button */
@@ -92,7 +93,27 @@
     }
 </style>
 
-<!-- Sidebar -->
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// 🔥 Authentication check
+if (!isset($_SESSION['email'])) {
+    header("Location: index.php");
+    exit;
+}
+
+// 🔥 Logout check
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+?>
+
+
+<!-- 🔥 Navbar HTML -->
 <div class="sidebar" id="sidebar">
     <div class="nav-logo">
         <img src="assets/nav-logo.png" alt="Logo">
@@ -100,17 +121,18 @@
 
     <div class="nav">
         <a class="nav-link" href="dashboard.php">Dashboard</a>
-        <a class="nav-link" href="purchase.php">Purchase Mobiles</a>
+        <a class="nav-link" href="purchaseForm.php">Purchase Mobiles</a>
         <a class="nav-link" href="sold.php">Sold Mobiles</a>
         <a class="nav-link" href="returned.php">Returned Mobiles</a>
-
         <div class="logout">
-            <a class="nav-link" href="index.php">Logout</a>
+            <a class="nav-link" href="?logout=true">Logout</a>
         </div>
     </div>
+
+    
 </div>
 
-<!-- Toggle Button -->
+<!-- 🔥 Toggle Button -->
 <button class="menu-toggle" onclick="toggleSidebar()">
     <span class="menu-icon">&#9776;</span>
 </button>

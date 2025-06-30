@@ -13,8 +13,7 @@ $service = new Drive($client);
 
 // 🔥 Get Data from Form
 $imei = $_POST['imei'];
-$returnDate = $_POST['return_date'];
-$returnDescription = $_POST['return_description'];
+$return_description = $_POST['return_description'];  // ✅ Correct variable name
 
 // 🔥 Fetch IMEI Folder ID from DB
 $sql = "SELECT drive_folder_id FROM purchased_mobiles WHERE IMEI = '$imei' AND status = 'sold'";
@@ -72,14 +71,49 @@ $videoMetadata = new Drive\DriveFile([
     'parents' => [$imeiFolderId]
 ]);
 
-$videoContent = file_get_contents($videoTmp);
+$chunkSizeBytes = 1 * 1024 * 1024; // 1 MB per chunk
 
-$video = $service->files->create($videoMetadata, [
-    'data' => $videoContent,
-    'mimeType' => $videoMimeType,
-    'uploadType' => 'multipart',
+// ✅ Prepare Drive File Metadata
+$videoMetadata = new Google\Service\Drive\DriveFile([
+    'name' => 'SellerVerification.mp4',  // 🔥 Change name as needed
+    'parents' => [$imeiFolderId]
+]);
+
+// ✅ Create Upload Request
+$request = $service->files->create($videoMetadata, [
     'fields' => 'id'
 ]);
+
+// ✅ Initialize Chunk Upload
+$media = new Google\Http\MediaFileUpload(
+    $client,
+    $request,
+    'video/mp4',
+    null,
+    true,
+    $chunkSizeBytes
+);
+
+$media->setFileSize(filesize($videoTmp));
+
+// ✅ Upload in Chunks
+$handle = fopen($videoTmp, "rb");
+while (!feof($handle)) {
+    $chunk = fread($handle, $chunkSizeBytes);
+    $media->nextChunk($chunk);
+}
+fclose($handle);
+
+// ✅ Get Uploaded File ID
+$uploadedFile = $media->getMediaObject();
+$service->permissions->create($uploadedFile->id, new Google\Service\Drive\Permission([
+    'type' => 'anyone',
+    'role' => 'reader'
+]));
+
+// ✅ Get Link
+$videoLink = "https://drive.google.com/file/d/" . $uploadedFile->id . "/view";
+
 
 $service->permissions->create($video->id, $permission);
 
@@ -87,13 +121,13 @@ $returnVerificationLink = "https://drive.google.com/file/d/" . $video->id . "/vi
 
 // 🔥 Update Database with Return Info
 $update = "UPDATE purchased_mobiles 
-    SET 
+SET 
     status = 'returned',
     return_photo = '".json_encode($returnPhotoLinks)."',
     return_verification = '$returnVerificationLink',
-    return_date = '$returnDate',
-    return_description = '$returnDescription'
-    WHERE IMEI = '$imei'";
+    return_description = '$return_description',
+    return_date = CURRENT_TIMESTAMP
+WHERE IMEI = '$imei'";
 
 if (mysqli_query($conn, $update)) {
     echo "✅ Mobile marked as 'RETURNED' successfully.";

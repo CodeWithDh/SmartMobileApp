@@ -4,10 +4,10 @@ $username = "root";
 $password = "";
 $database = "smart_mobile_app";
 
-$conn = mysqli_connect($host, $username, $password, $database);
 
+$conn = mysqli_connect('localhost', 'root', '', 'smart_mobile_app');
 if (!$conn) {
-    die("Database Connection Failed: " . mysqli_connect_error());
+    die('❌ Connection failed: ' . mysqli_connect_error());
 }
 ?>
 
