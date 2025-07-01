@@ -1,0 +1,17 @@
+{
+    "name": "codewith-sd/backend",
+    "autoload": {
+        "psr-4": {
+            "CodewithSd\\Backend\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Shivam",
+            "email": "codewithdh@gmail.com"
+        }
+    ],
+    "require": {
+        "mpdf/mpdf": "^8.2"
+    }
+}

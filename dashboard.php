@@ -1,5 +1,17 @@
-<?php include 'auth.php'; ?>
-<?php include 'components/navbar.php'; ?>
+<?php
+include 'components/navbar.php';
+require 'backend/db.php';
+
+// ✅ Fetch Counts
+$purchasedResult = mysqli_query($conn, "SELECT COUNT(*) AS count FROM purchased_mobiles WHERE status = 'purchased'");
+$purchasedCount = mysqli_fetch_assoc($purchasedResult)['count'];
+
+$soldResult = mysqli_query($conn, "SELECT COUNT(*) AS count FROM purchased_mobiles WHERE status = 'sold'");
+$soldCount = mysqli_fetch_assoc($soldResult)['count'];
+
+$returnResult = mysqli_query($conn, "SELECT COUNT(*) AS count FROM purchased_mobiles WHERE status = 'returned'");
+$returnCount = mysqli_fetch_assoc($returnResult)['count'];
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -21,49 +33,64 @@
             padding: 20px;
         }
 
-        /* 🔥 Top Section */
         .top-section {
-            margin-top: 70px; /* ✅ Space below nav-icon */
-            border-bottom: 1.5px solid #5409DA;
-            padding-bottom: 15px;
-            display: flex;
-            justify-content: space-evenly;
-            gap: 20px;
-        }
+    /* margin-left: 260px; */
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
 
-        .top-card {
-            flex: 1;
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-top: 4px solid #5409DA;
-            transition: transform 0.3s ease;
-            text-align: center;
-        }
+.top-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-top: 5px solid #5409DA;
+    transition: transform 0.3s ease;
+    text-align: center;
+}
+.top-card {
+    padding: 18px; /* for all */
+}
 
-        .top-card:hover {
-            transform: translateY(-5px);
-        }
+.top-card:hover {
+    transform: translateY(-5px);
+}
 
-        .top-card h4 {
-            color: #5409DA;
-            margin-bottom: 10px;
-        }
+.top-card h4 {
+    color: #5409DA;
+    margin-bottom: 10px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
 
-        .top-card a {
-            background-color: #5409DA;
-            color: white;
-            padding: 8px 20px;
-            border-radius: 8px;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 10px;
-        }
+.top-card p {
+    color: #333;
+    margin: 0;
+    font-size: 14px;
+}
 
-        .top-card a:hover {
-            background-color: #4E71FF;
-        }
+.top-card .count {
+    font-size: 28px;
+    color: #5409DA;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.top-card a {
+    background-color: #5409DA;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 10px;
+}
+
+.top-card a:hover {
+    background-color: #4E71FF;
+}
 
         /* 🔥 Bottom Section */
         .bottom-section {
@@ -214,24 +241,52 @@
 <body>
 
 <div class="content">
-    <!-- 🔥 Top Section -->
-    <div class="top-section">
-        <div class="top-card">
-            <h4>Purchase</h4>
-            <p>Purchase Mobile</p>
-            <a href="purchaseForm.php">Go</a>
-        </div>
-        <div class="top-card">
-            <h4>Sell</h4>
-            <p>Sell Mobile</p>
-            <a href="purchasedList.php">Go</a>
-        </div>
-        <div class="top-card">
-            <h4>Return</h4>
-            <p>Return Mobile</p>
-            <a href="returnList.php">Go</a>
-        </div>
+    
+  <!-- 🔥 Top Section -->
+<!-- 🔥 Top Section -->
+<div class="top-section">
+
+    <!-- Purchase -->
+    <div class="top-card">
+        <h4>Purchase</h4>
+        <p>Purchase Mobile</p>
+        <a href="purchaseForm.php">Go</a>
     </div>
+
+    <!-- Sell -->
+    <div class="top-card">
+        <h4>Sell</h4>
+        <p>Sell Mobile</p>
+        <a href="purchasedList.php">Go</a>
+    </div>
+
+    <!-- Return -->
+    <div class="top-card">
+        <h4>Return</h4>
+        <p>Return Mobile</p>
+        <a href="returnList.php">Go</a>
+    </div>
+
+    <!-- Count Summary Card -->
+    <div class="top-card">
+        <h4>Summary</h4>
+        <div style="line-height: 1.8;">
+            <p style="margin: 0; font-size: 14px;">
+                📦 <b>Purchased:</b> <?= $purchasedCount ?>
+            </p>
+            <p style="margin: 0; font-size: 14px;">
+                📈 <b>Sold:</b> <?= $soldCount ?>
+            </p>
+            <p style="margin: 0; font-size: 14px;">
+                🔄 <b>Returned:</b> <?= $returnCount ?>
+            </p>
+        </div>
+        <a href="purchasedList.php">View All</a>
+    </div>
+
+</div>
+
+
     <?php
 include 'backend/db.php';
 

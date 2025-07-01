@@ -1,121 +1,90 @@
+<?php include 'components/navbar.php'; ?>
 <?php
-require_once __DIR__ . '/backend/tcpdf/tcpdf.php';
+$imei = $_GET['imei'] ?? '';
+$pdf = $_GET['pdf'] ?? '';
+$type = $_GET['type'] ?? 'purchase';
 
-require '../vendor/autoload.php';
-require 'db.php';
+// ✅ Dynamic Success Messages
+$message = match($type) {
+    'purchase' => '✅ Purchase Completed Successfully!',
+    'sell'     => '✅ Mobile Sold Successfully!',
+    'return'   => '✅ Mobile Returned Successfully!',
+    default    => '✅ Operation Completed Successfully!',
+};
 
-use Google\Client;
-use Google\Service\Drive;
-use TCPDF;
-
-// 🔥 Get IMEI from URL or POST
-$imei = $_GET['imei'] ?? die("IMEI not provided");
-
-// 🔥 Fetch Data from DB
-$sql = "SELECT * FROM purchased_mobiles WHERE IMEI = '$imei'";
-$result = mysqli_query($conn, $sql);
-if (!$result || mysqli_num_rows($result) == 0) {
-    die("IMEI not found.");
-}
-$row = mysqli_fetch_assoc($result);
-
-// 🔥 Generate PDF
-$pdf = new TCPDF();
-$pdf->AddPage();
-$pdf->SetFont('helvetica', '', 12);
-
-$html = '
-<h2 style="color:#5409DA;">SmartMobileApp - Purchase Invoice</h2>
-<table cellpadding="5" cellspacing="0" border="1">
-    <tr>
-    
-        <td><b>IMEI</b></td>
-        <td>' . htmlspecialchars($row['IMEI']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Mobile Name</b></td>
-        <td>' . htmlspecialchars($row['mobile_name']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Seller Name</b></td>
-        <td>' . htmlspecialchars($row['seller_name']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Seller Mobile</b></td>
-        <td>' . htmlspecialchars($row['seller_mobile']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Fault Description</b></td>
-        <td>' . htmlspecialchars($row['fault_description']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Price</b></td>
-        <td>' . htmlspecialchars($row['price']) . '</td>
-    </tr>
-    <tr>
-        <td><b>Purchase Date</b></td>
-        <td>' . htmlspecialchars($row['purchase_date']) . '</td>
-    </tr>
-</table>
-
-<p style="color:#5409DA; margin-top:20px;">Thank you for using SmartMobileApp.</p>
-';
-
-$pdf->writeHTML($html);
-
-// 🔥 Save PDF Temporarily
-$pdfFileName = $imei . ".pdf";
-$pdfFilePath = __DIR__ . "/temp/" . $pdfFileName;
-
-if (!file_exists(__DIR__ . "/temp")) {
-    mkdir(__DIR__ . "/temp", 0777, true);
-}
-
-$pdf->Output($pdfFilePath, 'F');
-
-// 🔥 Upload PDF to Google Drive
-$client = new Client();
-$client->setAuthConfig('credentials.json');
-$client->addScope(Drive::DRIVE);
-$service = new Drive($client);
-
-// 🔥 Fetch Folder ID
-$folderSql = "SELECT drive_folder_id FROM purchased_mobiles WHERE IMEI = '$imei'";
-$folderResult = mysqli_query($conn, $folderSql);
-$folderRow = mysqli_fetch_assoc($folderResult);
-$folderId = $folderRow['drive_folder_id'];
-
-// 🔥 Permission
-$permission = new Drive\Permission([
-    'type' => 'anyone',
-    'role' => 'reader'
-]);
-
-// 🔥 Upload File
-$fileMetadata = new Drive\DriveFile([
-    'name' => $pdfFileName,
-    'parents' => [$folderId]
-]);
-
-$content = file_get_contents($pdfFilePath);
-
-$file = $service->files->create($fileMetadata, [
-    'data' => $content,
-    'mimeType' => 'application/pdf',
-    'uploadType' => 'multipart',
-    'fields' => 'id'
-]);
-
-$service->permissions->create($file->id, $permission);
-
-$pdfLink = "https://drive.google.com/file/d/" . $file->id . "/view";
-
-// 🔥 Delete local temp file
-unlink($pdfFilePath);
-
-mysqli_close($conn);
-
-// 🔥 Redirect to Success Page with Link
-header("Location: success.php?imei=$imei&pdf=" . urlencode($pdfLink));
-exit;
+// ✅ Dynamic PDF Label
+$pdfLabel = match($type) {
+    'purchase' => '📄 Download Purchase Invoice',
+    'sell'     => '📄 Download Sell Invoice',
+    'return'   => '📄 Download Return Invoice',
+    default    => '📄 Download Invoice',
+};
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Success</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: white;
+            margin: 0;
+            padding: 30px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .success-container {
+            margin-left: 260px;
+            background-color: #BBFBFF;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-top: 5px solid #5409DA;
+            text-align: center;
+        }
+        h1 {
+            color: #5409DA;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        p {
+            font-size: 18px;
+            color: #333;
+        }
+        .btn-primary {
+            background-color: #5409DA;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #4E71FF;
+        }
+        .btn-outline-secondary {
+            border: 2px solid #5409DA;
+            color: #5409DA;
+        }
+        .btn-outline-secondary:hover {
+            background-color: #5409DA;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div class="success-container">
+    <h1><?= $message ?></h1>
+    <p><b>IMEI:</b> <?= htmlspecialchars($imei) ?></p>
+
+    <?php if ($pdf): ?>
+        <a href="<?= htmlspecialchars($pdf) ?>" target="_blank" class="btn btn-primary mt-3">
+            <?= $pdfLabel ?>
+        </a>
+    <?php endif; ?>
+
+    <br><br>
+    <a href="dashboard.php" class="btn btn-outline-secondary">
+        🔙 Back to Dashboard
+    </a>
+</div>
+
+</body>
+</html>

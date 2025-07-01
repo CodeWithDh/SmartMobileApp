@@ -71,7 +71,7 @@ video {
     <div class="form-container">
     
     <h2>Sell Mobile - IMEI: <?php echo htmlspecialchars($imei); ?></h2>
-    <form action="backend/insertSell.php" method="POST" enctype="multipart/form-data">
+        <form action="backend/insertSell.php" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="imei" value="<?php echo htmlspecialchars($imei); ?>">
 
         <!-- 🔥 Buyer Name -->
@@ -97,6 +97,11 @@ video {
             <label class="form-label">Buyer Verification Video (MP4) *</label>
             <input type="file" name="buyer_verification" accept="video/mp4" class="form-control" required>
         </div>
+        <div class="mb-3">
+    <label class="form-label">Sold Price *</label>
+    <input type="number" name="sold_price" step="0.01" class="form-control" placeholder="Enter selling price" required>
+</div>
+
 
         <button type="submit" name="submit" class="btn btn-primary w-100">Complete Sale</button>
     </form>

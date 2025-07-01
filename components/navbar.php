@@ -121,9 +121,9 @@ if (isset($_GET['logout'])) {
 
     <div class="nav">
         <a class="nav-link" href="dashboard.php">Dashboard</a>
-        <a class="nav-link" href="purchaseForm.php">Purchase Mobiles</a>
-        <a class="nav-link" href="sold.php">Sold Mobiles</a>
-        <a class="nav-link" href="returned.php">Returned Mobiles</a>
+        <a class="nav-link" href="purchasedList.php">Purchased Mobiles</a>
+        <a class="nav-link" href="returnList.php">Sold Mobiles</a>
+        <a class="nav-link" href="returnedList.php">Returned Mobiles</a>
         <div class="logout">
             <a class="nav-link" href="?logout=true">Logout</a>
         </div>

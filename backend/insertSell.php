@@ -5,37 +5,39 @@ require 'db.php';
 use Google\Client;
 use Google\Service\Drive;
 
-// 🔥 Initialize Google Client
+// ✅ Initialize Google Client
 $client = new Client();
 $client->setAuthConfig('credentials.json');
 $client->addScope(Drive::DRIVE);
 $service = new Drive($client);
 
-// 🔥 Get IMEI
+// ✅ Get IMEI and Buyer Details
 $imei = $_POST['imei'];
-
-// 🔥 Get Buyer Details
 $buyer_name = $_POST['buyer_name'];
 $buyer_mobile = $_POST['buyer_mobile'];
+$sold_price = $_POST['sold_price'];
 
-// 🔥 Fetch Folder ID from DB
+
+
+// ✅ Fetch Drive Folder ID
 $sql = "SELECT drive_folder_id FROM purchased_mobiles WHERE IMEI = '$imei' AND status = 'purchased'";
 $result = mysqli_query($conn, $sql);
+
 
 if (mysqli_num_rows($result) == 0) {
     die("❌ Error: IMEI not found or not in 'purchased' status.");
 }
 
 $row = mysqli_fetch_assoc($result);
-$imeiFolderId = $row['drive_folder_id'];
+$imeiFolderId = $row['1Ah8EfWG-SpHPxZlggOk8VCCqfY_Q73W5'];
 
-// 🔥 Make Public Permission
+// ✅ Set Public Permission
 $permission = new Drive\Permission([
     'type' => 'anyone',
     'role' => 'reader'
 ]);
 
-// 🔥 Upload Buyer Photos
+// ✅ Upload Buyer Photos
 $buyerPhotoLinks = [];
 $photoCount = 1;
 
@@ -48,81 +50,82 @@ foreach ($_FILES['buyer_photo']['tmp_name'] as $index => $tmpName) {
         'parents' => [$imeiFolderId]
     ]);
 
-    $content = file_get_contents($tmpName);
-
     $file = $service->files->create($fileMetadata, [
-        'data' => $content,
+        'data' => file_get_contents($tmpName),
         'mimeType' => $mimeType,
         'uploadType' => 'multipart',
         'fields' => 'id'
     ]);
 
     $service->permissions->create($file->id, $permission);
-
-    $link = "https://drive.google.com/file/d/" . $file->id . "/view";
-    $buyerPhotoLinks[] = $link;
+    $buyerPhotoLinks[] = "https://drive.google.com/file/d/" . $file->id . "/view";
     $photoCount++;
 }
 
-// 🔥 Upload Buyer Verification Video
+// ✅ Upload Buyer Verification Video with Resumable Upload
 $videoTmp = $_FILES['buyer_verification']['tmp_name'];
 $videoName = 'BuyerVerification.mp4';
+$videoSize = filesize($videoTmp);
 $videoMimeType = mime_content_type($videoTmp);
 
-$videoMetadata = new Drive\DriveFile([
-    'name' => $videoName,
-    'parents' => [$imeiFolderId]
-]);
+// ✔️ Create Upload Session
+$token = $client->fetchAccessTokenWithAssertion();
 
-$chunkSizeBytes = 1 * 1024 * 1024; // 1 MB per chunk
-
-// ✅ Prepare Drive File Metadata
-$videoMetadata = new Google\Service\Drive\DriveFile([
-    'name' => 'SellerVerification.mp4',  // 🔥 Change name as needed
-    'parents' => [$imeiFolderId]
-]);
-
-// ✅ Create Upload Request
-$request = $service->files->create($videoMetadata, [
-    'fields' => 'id'
-]);
-
-// ✅ Initialize Chunk Upload
-$media = new Google\Http\MediaFileUpload(
-    $client,
-    $request,
-    'video/mp4',
-    null,
-    true,
-    $chunkSizeBytes
+$response = $client->getHttpClient()->request(
+    'POST',
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+    [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $token['access_token'],
+            'Content-Type' => 'application/json; charset=UTF-8'
+        ],
+        'body' => json_encode([
+            'name' => $videoName,
+            'parents' => [$imeiFolderId]
+        ])
+    ]
 );
 
-$media->setFileSize(filesize($videoTmp));
+$uploadUrl = $response->getHeaderLine('Location');
+if (!$uploadUrl) {
+    throw new Exception("❌ Failed to obtain upload URL.");
+}
 
-// ✅ Upload in Chunks
-$handle = fopen($videoTmp, "rb");
+// ✔️ Upload in Chunks
+$httpClient = $client->authorize();
+$handle = fopen($videoTmp, 'rb');
+$chunkSize = 5 * 1024 * 1024; // 5MB
+$offset = 0;
+
 while (!feof($handle)) {
-    $chunk = fread($handle, $chunkSizeBytes);
-    $media->nextChunk($chunk);
+    $chunk = fread($handle, $chunkSize);
+    $chunkLength = strlen($chunk);
+
+    $headers = [
+        'Content-Length' => $chunkLength,
+        'Content-Range' => "bytes $offset-" . ($offset + $chunkLength - 1) . "/$videoSize"
+    ];
+
+    $res = $httpClient->request(
+        'PUT',
+        $uploadUrl,
+        [
+            'headers' => $headers,
+            'body' => $chunk,
+        ]
+    );
+
+    $offset += $chunkLength;
 }
 fclose($handle);
 
-// ✅ Get Uploaded File ID
-$uploadedFile = $media->getMediaObject();
-$service->permissions->create($uploadedFile->id, new Google\Service\Drive\Permission([
-    'type' => 'anyone',
-    'role' => 'reader'
-]));
+$resBody = json_decode($res->getBody()->getContents(), true);
+$videoFileId = $resBody['id'];
 
-// ✅ Get Link
-$videoLink = "https://drive.google.com/file/d/" . $uploadedFile->id . "/view";
+$service->permissions->create($videoFileId, $permission);
+$buyerVerificationLink = "https://drive.google.com/file/d/$videoFileId/view";
 
-
-$service->permissions->create($video->id, $permission);
-
-$buyerVerificationLink = "https://drive.google.com/file/d/" . $video->id . "/view";
-
-// 🔥 Update Database
+// ✅ Update Database
 $update = "UPDATE purchased_mobiles 
 SET 
     status = 'sold',
@@ -130,11 +133,20 @@ SET
     buyer_mobile = '$buyer_mobile',
     buyer_photo = '".json_encode($buyerPhotoLinks)."',
     buyer_verification = '$buyerVerificationLink',
+    sold_price = '$sold_price',
     sell_date = CURRENT_TIMESTAMP
 WHERE IMEI = '$imei'";
 
+
+
+
+
 if (mysqli_query($conn, $update)) {
-    echo "✅ Mobile marked as 'SOLD' successfully.";
+   header("Location: generateSellPDF.php?imei=" . urlencode($imei));
+
+
+exit;
+
 } else {
     echo "❌ Error: " . mysqli_error($conn);
 }

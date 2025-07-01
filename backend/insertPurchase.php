@@ -1,7 +1,9 @@
 <?php
-require '../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 require 'db.php';
-require_once __DIR__ . '/tcpdf/tcpdf.php';
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
 
 
 
@@ -26,6 +28,8 @@ try {
     $mobileName = $_POST['mobile_name'];
     $faultDescription = $_POST['fault_description'];
     $price = $_POST['price'];
+    $purchase_price = $_POST['price']; 
+
 
     // ✅ Create IMEI Folder in Google Drive
     $folderMetadata = new Drive\DriveFile([
@@ -137,21 +141,25 @@ try {
     $service->permissions->create($videoFileId, $permission);
     $verificationVideoLink = "https://drive.google.com/file/d/$videoFileId/view";
 
-    // ✅ Insert Into Database
-    $sql = "INSERT INTO purchased_mobiles (
-        IMEI, seller_name, seller_mobile, seller_photo, seller_verification_video,
-        mobile_name, fault_description, price, drive_folder_id
-    ) VALUES (
-        '$imei', '$sellerName', '$sellerMobile',
-        '" . json_encode($sellerPhotoLinks) . "',
-        '$verificationVideoLink',
-        '$mobileName', '$faultDescription', '$price', '$imeiFolderId'
-    )";
 
-    if (mysqli_query($conn, $sql)) {
-        header("Location: ../success.php?msg=Purchase+Completed&imei=" . urlencode($imei));
-        exit;
-    } else {
+
+    // ✅ Insert Into Database
+$sql = "INSERT INTO purchased_mobiles (
+    IMEI, seller_name, seller_mobile, seller_photo, seller_verification_video,
+    mobile_name, fault_description, purchase_price, drive_folder_id
+) VALUES (
+    '$imei', '$sellerName', '$sellerMobile',
+    '" . json_encode($sellerPhotoLinks) . "',
+    '$verificationVideoLink',
+    '$mobileName', '$faultDescription', '$purchase_price', '$imeiFolderId'
+)";
+
+
+
+  if (mysqli_query($conn, $sql)) {
+    header("Location: generatePDF.php?imei=$imei");
+    exit;
+} else {
         header("Location: ../error.php?msg=" . urlencode(mysqli_error($conn)));
         exit;
     }

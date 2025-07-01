@@ -1,4 +1,6 @@
 <?php include 'components/navbar.php'; ?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,12 +53,7 @@ video {
     border-radius: 8px;
 }
 
-        body {
-            background-color: white;
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
-            padding: 30px;
-        }
+       
         .form-container {
             margin-left: 260px;
             background: #fff;
@@ -97,7 +94,11 @@ video {
         <div class="mb-3">
             <label class="form-label">IMEI Number *</label>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="text" name="imei" id="imeiInput" class="form-control" placeholder="Scan or enter IMEI" required>
+              <input type="text" name="imei" id="imeiInput" class="form-control" 
+    placeholder="Scan or enter IMEI" required 
+    pattern="\d{15,}" 
+    title="IMEI must be at least 15 digits">
+
 
                 <!-- Camera -->
                 <button type="button" class="btn btn-outline-primary" onclick="openCamera()">📷</button>
@@ -162,10 +163,12 @@ video {
 <script>
 let stream = null;
 
+// 🔥 Open Camera
 function openCamera() {
-    document.getElementById('cameraContainer').style.display = 'block';
-
+    const cameraContainer = document.getElementById('cameraContainer');
     const video = document.getElementById('video');
+
+    cameraContainer.style.display = 'block';
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(s => {
@@ -174,11 +177,12 @@ function openCamera() {
             video.play();
         })
         .catch(err => {
-            alert('Camera access denied or not supported.');
+            alert('❌ Camera access denied or not supported.');
             console.error(err);
         });
 }
 
+// 🔥 Close Camera
 function closeCamera() {
     if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -186,6 +190,7 @@ function closeCamera() {
     document.getElementById('cameraContainer').style.display = 'none';
 }
 
+// 🔥 Capture Image from Camera
 function captureImage() {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
@@ -196,44 +201,55 @@ function captureImage() {
 
     const dataUrl = canvas.toDataURL('image/png');
 
-    Quagga.decodeSingle({
-        src: dataUrl,
-        numOfWorkers: 0,
-        decoder: {
-            readers: ["code_128_reader", "ean_reader", "code_39_reader"]
-        },
-    }, function(result) {
-        if (result && result.codeResult) {
-            document.getElementById('imeiInput').value = result.codeResult.code;
-        } else {
-            alert("❌ Barcode not detected. Try capturing a clear image.");
-        }
-    });
+    decodeBarcode(dataUrl);
 }
 
+// 🔥 Decode Barcode from File Upload
 function decodeFromFile(input) {
     const file = input.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        Quagga.decodeSingle({
-            src: e.target.result,
-            numOfWorkers: 0,
-            decoder: {
-                readers: ["code_128_reader", "ean_reader", "code_39_reader"]
-            },
-        }, function(result) {
-            if (result && result.codeResult) {
-                document.getElementById('imeiInput').value = result.codeResult.code;
-            } else {
-                alert("❌ Barcode not detected in the image.");
-            }
-        });
+        decodeBarcode(e.target.result);
     };
     reader.readAsDataURL(file);
 }
+
+// 🔥 Common Barcode Decoder Function
+function decodeBarcode(src) {
+    Quagga.decodeSingle({
+        src: src,
+        numOfWorkers: 0,
+        decoder: {
+            readers: ["code_128_reader", "ean_reader", "code_39_reader"]
+        },
+    }, function(result) {
+        if (result && result.codeResult) {
+            const code = result.codeResult.code;
+            if (code.length === 15) {
+                document.getElementById('imeiInput').value = code;
+            } else {
+                alert("❌ Scanned IMEI must be exactly 15 digits. Detected: " + code.length);
+            }
+        } else {
+            alert("❌ Barcode not detected. Please capture a clearer image.");
+        }
+    });
+}
+
+// 🔥 IMEI Length Validation Before Submit (15 digits check)
+document.querySelector("form").addEventListener("submit", function(e) {
+    const imei = document.getElementById("imeiInput").value.trim();
+    const imeiDigits = imei.replace(/\D/g, '');
+
+    if (imeiDigits.length !== 15) {
+        alert("❌ IMEI must be exactly 15 digits. Current: " + imeiDigits.length);
+        e.preventDefault();
+    }
+});
 </script>
+
 
 </body>
 </html>

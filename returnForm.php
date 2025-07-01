@@ -76,7 +76,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
 <h2>Return Mobile - IMEI: <?php echo htmlspecialchars($imei); ?></h2>
 
 <div class="form-container">
-    <form action="backend/insertReturn.php" method="POST" enctype="multipart/form-data">
+     <form action="backend/insertReturn.php" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="imei" value="<?php echo htmlspecialchars($imei); ?>">
 
         <!-- 🔥 Return Photos -->
