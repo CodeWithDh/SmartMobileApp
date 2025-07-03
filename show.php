@@ -1,6 +1,9 @@
+
 <?php
+
 require_once __DIR__ . '/backend/db.php';
 require_once __DIR__ . '/vendor/autoload.php';
+
 
 use Google\Client;
 use Google\Service\Drive;
@@ -140,8 +143,27 @@ foreach ($files->getFiles() as $file) {
 <div class="main-container">
     <h2>📱 IMEI Details: <?= htmlspecialchars($imei) ?></h2>
 
+
+
+<!-- delete -->
+<!-- 🗑️ Delete Button -->
+<form method="POST" action="deleteIMEI.php" onsubmit="return confirm('Are you sure you want to delete this IMEI?')">
+  <input type="hidden" name="imei" value="<?= htmlspecialchars($imei) ?>">
+  <button type="submit" class="btn btn-danger mt-4">🗑️ Delete IMEI</button>
+</form>
+
+
+
+
+
+
+</form>
+
     <div class="table-responsive">
         <table class="table table-bordered shadow-sm">
+           
+
+
             <?php if ($row['seller_name']): ?>
                 <tr><th>Seller Name</th><td><?= htmlspecialchars($row['seller_name']) ?></td></tr>
             <?php endif; ?>
@@ -168,6 +190,55 @@ foreach ($files->getFiles() as $file) {
                     <td><a href="<?= $pdf ?>" target="_blank" class="btn btn-sm btn-primary">📄 View PDF</a></td></tr>
             <?php endif; ?>
         </table>
+         <!-- Add below table -->
+
+
+<div id="otpBox" class="mt-3" style="display:none;">
+    <input type="text" id="otpInput" class="form-control w-25 d-inline" maxlength="6" placeholder="Enter OTP">
+    <button class="btn btn-success" onclick="verifyOTP()">Confirm Delete</button>
+</div>
+
+
+
+
+
+
+
+<script>
+function sendOTP() {
+    fetch('backend/sendOTP.php')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert("✅ OTP sent to admin email.");
+                document.getElementById('otpBox').style.display = 'block';
+            } else {
+                alert("❌ " + data.message);
+            }
+        });
+}
+
+function verifyOTP() {
+    const otp = document.getElementById('otpInput').value;
+    const imei = "<?= $imei ?>";
+
+    fetch('backend/verifyDeleteOTP.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `otp=${encodeURIComponent(otp)}&imei=${encodeURIComponent(imei)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert("✅ Deleted successfully.");
+            window.location.href = 'index.php';
+        } else {
+            alert("❌ " + data.message);
+        }
+    })
+    .catch(err => alert("❌ Error: " + err));
+}
+</script>
     </div>
 
     <?php if (!empty($photos)): ?>

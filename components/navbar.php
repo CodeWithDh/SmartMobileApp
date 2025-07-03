@@ -130,6 +130,7 @@ if (isset($_GET['logout'])) {
         <a class="nav-link" href="purchasedList.php">Purchased Mobiles</a>
         <a class="nav-link" href="returnList.php">Sold Mobiles</a>
         <a class="nav-link" href="returnedList.php">Returned Mobiles</a>
+        <a class="nav-link" href="settings.php">Settings</a>
         <div class="logout">
             <a class="nav-link" href="?logout=true">Logout</a>
         </div>
