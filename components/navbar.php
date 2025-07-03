@@ -1,3 +1,21 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// 🔥 Authentication check
+if (!isset($_SESSION['email'])) {
+    header("Location: index.php");
+    exit;
+}
+
+// 🔥 Logout check
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+?>
 <style>
     /* Sidebar */
     .sidebar {
@@ -98,24 +116,7 @@
     }
 </style>
 
-<?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
-// 🔥 Authentication check
-if (!isset($_SESSION['email'])) {
-    header("Location: index.php");
-    exit;
-}
-
-// 🔥 Logout check
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header("Location: index.php");
-    exit;
-}
-?>
 
 
 <!-- 🔥 Navbar HTML -->

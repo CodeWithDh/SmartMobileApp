@@ -1,6 +1,11 @@
 <?php
 require '../vendor/autoload.php';
 require 'db.php';
+$service->permissions->create($file->id, new Drive\Permission([
+    'type' => 'anyone',
+    'role' => 'reader'
+]));
+
 
 use Google\Client;
 use Google\Service\Drive;

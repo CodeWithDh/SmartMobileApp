@@ -37,7 +37,7 @@ $stockCount = $purchasedCount + $returnCount;
         }
 
         .top-section {
-    margin-top: 20px;
+    margin-top:0px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
