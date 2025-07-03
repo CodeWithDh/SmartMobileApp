@@ -1,23 +1,17 @@
 <?php include 'components/navbar.php'; ?>
-<?php
-$imei = isset($_POST['imei']) ? $_POST['imei'] : '';
-?>
-
+<?php $imei = isset($_POST['imei']) ? $_POST['imei'] : ''; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Sell Mobile</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-
     <style>
         body {
             background-color: white;
             font-family: 'Segoe UI', sans-serif;
             margin: 0;
             padding: 20px;
-            transition: margin-left 0.3s ease;
         }
 
         .form-container {
@@ -27,7 +21,6 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
             padding: 30px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.08);
             border-top: 5px solid #5409DA;
-            transition: margin-left 0.3s ease;
         }
 
         .form-label {
@@ -44,7 +37,10 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
             background-color: #4E71FF;
         }
 
-        .btn-outline-primary, .btn-outline-secondary {
+        .photo-preview img, .video-preview video {
+            width: 100px;
+            height: auto;
+            border: 2px solid #5409DA;
             border-radius: 8px;
         }
 
@@ -52,16 +48,8 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
             border: 2px solid #5409DA;
             border-radius: 8px;
         }
-
-        .photo-preview img, .video-preview video {
-            width: 100px;
-            height: auto;
-            border: 2px solid #5409DA;
-            border-radius: 8px;
-        }
     </style>
 </head>
-
 <body>
 <?php include 'components/topnav.php'; ?>
 <div class="form-container">
@@ -87,35 +75,35 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
             <label class="form-label">Buyer Photos *</label><br>
             <button type="button" class="btn btn-outline-primary" onclick="openPhotoCamera()">📷 Camera</button>
             <input type="file" name="buyer_photo[]" accept="image/*" multiple class="form-control mt-2">
-            <button type="button" class="btn btn-outline-danger mt-2" onclick="clearPhotos()">❌ Clear Photos</button>
+            <button type="button" class="btn btn-outline-danger mt-2" onclick="clearPhotos()">❌ Clear</button>
             <div id="photoPreview" class="photo-preview mt-2 d-flex gap-2 flex-wrap"></div>
             <input type="hidden" name="captured_photos" id="capturedPhotosInput">
         </div>
 
         <div id="photoCamera" style="display:none;">
             <video id="photoVideo" width="350" height="250" autoplay></video><br>
-            <button class="btn btn-success mt-2" type="button" onclick="capturePhoto()">📸 Capture Photo</button>
-            <button class="btn btn-secondary mt-2" type="button" onclick="closePhotoCamera()">Close</button>
+            <button type="button" class="btn btn-success mt-2" onclick="capturePhoto()">📸 Capture Photo</button>
+            <button type="button" class="btn btn-secondary mt-2" onclick="closePhotoCamera()">Close</button>
         </div>
 
         <!-- Buyer Verification Video -->
         <div class="mb-3">
             <label class="form-label">Buyer Verification Video *</label><br>
             <button type="button" class="btn btn-outline-primary" onclick="openVideoCamera()">🎥 Open Camera</button>
-            <button type="button" class="btn btn-outline-danger" onclick="clearRecordedVideos()">❌ Clear Videos</button>
+            <button type="button" class="btn btn-outline-danger" onclick="clearRecordedVideos()">❌ Clear</button>
             <div id="videoPreview" class="video-preview mt-2 d-flex gap-2 flex-wrap"></div>
-            <input type="hidden" name="captured_videos" id="capturedVideosInput">
+            <input type="hidden" name="captured_video" id="capturedVideoData">
             <input type="file" id="videoInput" name="buyer_verification" style="display:none;">
         </div>
 
         <div id="videoCamera" style="display:none;">
             <video id="recordVideo" width="350" height="250" autoplay muted></video><br>
-            <button class="btn btn-success mt-2" type="button" onclick="startRecording()">⏺️ Start Recording</button>
-            <button class="btn btn-danger mt-2" type="button" onclick="stopRecording()">⏹️ Stop Recording</button>
+            <button class="btn btn-success mt-2" type="button" onclick="startRecording()">⏺️ Start</button>
+            <button class="btn btn-danger mt-2" type="button" onclick="stopRecording()">⏹️ Stop</button>
             <button class="btn btn-secondary mt-2" type="button" onclick="closeVideoCamera()">Close</button>
         </div>
 
-        <!-- Price -->
+        <!-- Sold Price -->
         <div class="mb-3">
             <label class="form-label">Sold Price *</label>
             <input type="number" name="sold_price" step="0.01" class="form-control" required>
@@ -128,7 +116,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
 <canvas id="photoCanvas" width="350" height="250" style="display:none;"></canvas>
 
 <script>
-    // === Camera for Photos ===
+    // ==== PHOTO CAMERA ====
     let photoStream;
     function openPhotoCamera() {
         navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
@@ -166,7 +154,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
         document.getElementById("capturedPhotosInput").value = "";
     }
 
-    // === Video Recorder ===
+    // ==== VIDEO CAMERA ====
     let videoStream, mediaRecorder, recordedBlobs = [];
 
     function openVideoCamera() {
@@ -216,7 +204,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
 
     function clearRecordedVideos() {
         document.getElementById("videoPreview").innerHTML = "";
-        document.getElementById("capturedVideosInput").value = "";
+        document.getElementById("capturedVideoData").value = "";
     }
 </script>
 </body>

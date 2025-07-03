@@ -1,23 +1,49 @@
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
+require '../vendor/autoload.php';
 require 'db.php';
 
 use Mpdf\Mpdf;
 use Google\Client;
 use Google\Service\Drive;
 
-// 🔥 Get IMEI
+// 🔐 Validate IMEI
 $imei = $_GET['imei'] ?? die("IMEI not provided");
 
-// 🔥 Fetch Data
+// 🔍 Fetch Data from DB
 $sql = "SELECT * FROM purchased_mobiles WHERE IMEI = '$imei'";
 $result = mysqli_query($conn, $sql);
-if (!$result || mysqli_num_rows($result) == 0) {
-    die("IMEI not found.");
-}
+if (!$result || mysqli_num_rows($result) === 0) die("IMEI not found");
 $row = mysqli_fetch_assoc($result);
 
-// ✅ Initialize Mpdf
+// 📂 Initialize Google Client
+$client = new Client();
+$client->setAuthConfig('credentials.json');
+$client->addScope(Drive::DRIVE);
+$service = new Drive($client);
+
+// 📁 Folder ID
+$imeiFolderId = $row['drive_folder_id'];
+
+// 🔧 Download Image Utility
+function downloadDriveImage($service, $fileId) {
+    $response = $service->files->get($fileId, ['alt' => 'media']);
+    $content = $response->getBody()->getContents();
+    $tmp = tempnam(sys_get_temp_dir(), 'img_');
+    file_put_contents($tmp, $content);
+    return $tmp;
+}
+
+// 📦 Get Images by Prefix
+function getImageFiles($service, $folderId, $prefix) {
+    $query = "'$folderId' in parents and mimeType contains 'image/' and name contains '$prefix'";
+    $response = $service->files->listFiles([
+        'q' => $query,
+        'fields' => 'files(id, name)'
+    ]);
+    return $response->getFiles();
+}
+
+// 🧾 Initialize mPDF
 $mpdf = new Mpdf([
     'format' => 'A4',
     'margin_top' => 50,
@@ -26,146 +52,109 @@ $mpdf = new Mpdf([
     'margin_footer' => 10,
 ]);
 
-// ✅ Watermark
 $mpdf->SetWatermarkText('SmartMobileApp');
 $mpdf->showWatermarkText = true;
 $mpdf->watermarkTextAlpha = 0.05;
 
-// ✅ Header
 $mpdf->SetHTMLHeader('
 <div style="background-color:#fff; border-bottom:2px solid #5409DA; padding: 10px 0;">
     <div style="display: flex; align-items:center;">
-        <div style="flex:1;">
-            <img src="../assets/logo.png" height="70">
-        </div>
+        <div style="flex:1;"><img src="../assets/logo.png" height="80"></div>
         <div style="flex:3; text-align:right;">
             <div style="font-size:22px; font-weight: bold; color:#5409DA;">SmartMobileApp</div>
             <div style="font-size:14px; color:#4E71FF;">Return Invoice</div>
-            <div style="font-size:12px; color:#333;">Date: ' . date("d-m-Y") . '</div>
-            <div style="font-size:12px; color:#333;">IMEI: ' . $imei . '</div>
+            <div style="font-size:12px; color:#333;">Date: '.date("d-m-Y").'</div>
+            <div style="font-size:12px; color:#333;">IMEI: '.$imei.'</div>
         </div>
     </div>
 </div>
 ');
 
-// ✅ Footer
-$mpdf->SetHTMLFooter('
-    <div style="text-align:center; font-size:10px; color:#4E71FF;">
-        Thank you for using SmartMobileApp | Page {PAGENO}
-    </div>
-');
+$mpdf->SetHTMLFooter('<div style="text-align:center; font-size:10px; color:#4E71FF;">Page {PAGENO}</div>');
 
-// ✅ Stylesheet
-$stylesheet = '
+// 💅 CSS Styling
+$style = '
 body {font-family: sans-serif; color: #222;}
-.heading {
-    color: #5409DA;
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 12px;
-}
-table {
-    border-collapse: collapse;
-    width: 100%;
-}
-th, td {
-    border: 1px solid #5409DA;
-    padding: 10px;
-    font-size: 12px;
-}
-th {
-    background-color: #5409DA;
-    color: white;
-    font-weight: bold;
-    font-size: 13px;
-}
-td:last-child {
-    text-align: right;
-}
-tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-.footer-note {
-    margin-top: 20px;
-    color: #4E71FF;
-    font-style: italic;
-    font-size: 11px;
-}
+h2 {color: #5409DA; margin-bottom: 10px;}
+table {width: 100%; border-collapse: collapse; margin-bottom: 10px;}
+th, td {padding: 10px; border: 1px solid #5409DA; font-size: 12px;}
+th {background-color: #5409DA; color: white; font-size: 13px;}
+.image-grid {display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;}
+.image-grid img {width: 140px; border: 2px solid #5409DA; border-radius: 8px;}
+.footer-note {margin-top: 20px; font-style: italic; font-size: 11px; color: #4E71FF;}
 ';
 
-// ✅ HTML Content
-$html = '
-<div class="heading">▸ Return Details</div>
+// 📄 HTML Content
+$html = '<h2>Mobile Transaction Details</h2><table>';
+$html .= '<tr><th>IMEI</th><td>' . htmlspecialchars($row['IMEI']) . '</td></tr>';
+$html .= '<tr><th>Mobile Name</th><td>' . htmlspecialchars($row['mobile_name']) . '</td></tr>';
+$html .= '<tr><th>Seller</th><td>' . htmlspecialchars($row['seller_name']) . ' (' . htmlspecialchars($row['seller_mobile']) . ')</td></tr>';
+$html .= '<tr><th>Fault</th><td>' . htmlspecialchars($row['fault_description']) . '</td></tr>';
+$html .= '<tr><th>Purchase Price</th><td>₹ ' . htmlspecialchars($row['purchase_price']) . '</td></tr>';
+$html .= '<tr><th>Purchase Date</th><td>' . htmlspecialchars($row['purchase_date']) . '</td></tr>';
+$html .= '<tr><th>Sold To</th><td>' . htmlspecialchars($row['buyer_name']) . ' (' . htmlspecialchars($row['buyer_mobile']) . ')</td></tr>';
+$html .= '<tr><th>Sold Price</th><td>₹ ' . htmlspecialchars($row['sold_price']) . '</td></tr>';
+$html .= '<tr><th>Sold Date</th><td>' . htmlspecialchars($row['sell_date']) . '</td></tr>';
+$html .= '<tr><th>Returned</th><td>' . htmlspecialchars($row['return_description']) . '</td></tr>';
+$html .= '<tr><th>Return Date</th><td>' . htmlspecialchars($row['return_date']) . '</td></tr>';
+$html .= '</table>';
 
-<table>
-    <tr><th>IMEI</th><td>' . htmlspecialchars($row['IMEI']) . '</td></tr>
-    <tr><th>Mobile Name</th><td>' . htmlspecialchars($row['mobile_name']) . '</td></tr>
-    <tr><th>Buyer Name</th><td>' . htmlspecialchars($row['buyer_name']) . '</td></tr>
-    <tr><th>Buyer Mobile</th><td>' . htmlspecialchars($row['buyer_mobile']) . '</td></tr>
-    <tr><th>Return Description</th><td>' . htmlspecialchars($row['return_description']) . '</td></tr>
-    <tr><th>Return Date</th><td>' . htmlspecialchars($row['return_date']) . '</td></tr>
-</table>
+// 🖼️ Add All Photo Sections
+foreach ([
+    'Seller Photos' => 'sellerPic',
+    'Buyer Photos' => 'buyerPic',
+    'Return Photos' => 'returnPic'
+] as $section => $prefix) {
+    $files = getImageFiles($service, $imeiFolderId, $prefix);
+    if (count($files) > 0) {
+        $html .= '<h2>' . $section . '</h2><div class="image-grid">';
+        foreach ($files as $file) {
+            $localPath = downloadDriveImage($service, $file->getId());
+            $base64 = base64_encode(file_get_contents($localPath));
+            $mimeType = mime_content_type($localPath);
+            unlink($localPath);
+            $html .= '<img src="data:' . $mimeType . ';base64,' . $base64 . '">';
+        }
+        $html .= '</div>';
+    }
+}
 
-<p class="footer-note">This document is auto-generated by SmartMobileApp. Thank you!</p>
-';
+$html .= '<p class="footer-note">This document is auto-generated by SmartMobileApp. Thank you!</p>';
 
-// ✅ Write to PDF
-$mpdf->WriteHTML($stylesheet, \Mpdf\HTMLParserMode::HEADER_CSS);
+// 🧾 Create PDF Locally
+$pdfName = "Mobile_Sale_{$imei}.pdf";
+$pdfPath = __DIR__ . "/../temp/" . $pdfName;
+if (!file_exists(dirname($pdfPath))) mkdir(dirname($pdfPath), 0777, true);
+
+$mpdf->WriteHTML($style, \Mpdf\HTMLParserMode::HEADER_CSS);
 $mpdf->WriteHTML($html);
+$mpdf->Output($pdfPath, 'F');
 
-// ✅ Save PDF Locally
-$pdfFileName = "Return_" . $imei . ".pdf";
-$pdfFilePath = __DIR__ . "/temp/" . $pdfFileName;
-if (!file_exists(__DIR__ . "/temp")) {
-    mkdir(__DIR__ . "/temp", 0777, true);
-}
-$mpdf->Output($pdfFilePath, 'F');
-
-// ✅ Upload to Google Drive
-$client = new Client();
-$client->setAuthConfig('credentials.json');
-$client->addScope(Drive::DRIVE);
-$service = new Drive($client);
-
-// 🔥 Fetch Folder ID
-$folderSql = "SELECT drive_folder_id FROM purchased_mobiles WHERE IMEI = '$imei'";
-$folderResult = mysqli_query($conn, $folderSql);
-if (!$folderResult || mysqli_num_rows($folderResult) == 0) {
-    die("❌ Drive folder not found.");
-}
-$folderRow = mysqli_fetch_assoc($folderResult);
-$folderId = $folderRow['drive_folder_id'];
-
-// 🔥 Upload File
-$fileMetadata = new Drive\DriveFile([
-    'name' => $pdfFileName,
-    'parents' => [$folderId]
+// ☁️ Upload to Drive
+$driveFile = new Drive\DriveFile([
+    'name' => $pdfName,
+    'parents' => [$imeiFolderId]
 ]);
 
-$content = file_get_contents($pdfFilePath);
-
-$file = $service->files->create($fileMetadata, [
+$content = file_get_contents($pdfPath);
+$uploaded = $service->files->create($driveFile, [
     'data' => $content,
     'mimeType' => 'application/pdf',
     'uploadType' => 'multipart',
     'fields' => 'id'
 ]);
 
-// 🔥 Set Permission
+// 🌍 Set Permission
 $permission = new Drive\Permission([
     'type' => 'anyone',
     'role' => 'reader'
 ]);
-$service->permissions->create($file->id, $permission);
+$service->permissions->create($uploaded->id, $permission);
 
-$pdfLink = "https://drive.google.com/file/d/" . $file->id . "/view";
+// 🧹 Clean Temp
+unlink($pdfPath);
 
-// 🔥 Delete Temp PDF
-unlink($pdfFilePath);
-
-mysqli_close($conn);
-
-// ✅ Redirect to Success
+// ✅ Redirect
+$pdfLink = "https://drive.google.com/file/d/{$uploaded->id}/view";
 header("Location: ../success.php?imei=$imei&pdf=" . urlencode($pdfLink));
 exit;
-?>

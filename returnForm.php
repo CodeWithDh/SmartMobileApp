@@ -1,7 +1,5 @@
 <?php include 'components/navbar.php'; ?>
-<?php
-$imei = isset($_POST['imei']) ? $_POST['imei'] : '';
-?>
+<?php $imei = isset($_POST['imei']) ? $_POST['imei'] : ''; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -14,23 +12,17 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
         body {
             background-color: white;
             font-family: 'Segoe UI', sans-serif;
-            margin: 0;
             padding: 20px;
             transition: margin-left 0.3s ease;
         }
 
         .form-container {
             margin-left: 260px;
-            background: white;
+            background: #fff;
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.08);
             border-top: 5px solid #5409DA;
-            transition: margin-left 0.3s ease;
-        }
-
-        .sidebar.hide ~ .form-container {
-            margin-left: 0;
         }
 
         h2 {
@@ -47,13 +39,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
         .form-control {
             background-color: white;
             border: 1.5px solid #4E71FF;
-            color: #333;
             border-radius: 8px;
-        }
-
-        .form-control:focus {
-            border-color: #5409DA;
-            box-shadow: 0 0 0 0.15rem rgba(84,9,218,0.25);
         }
 
         .btn-primary {
@@ -61,45 +47,173 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
             border: none;
         }
 
-        .btn-primary:hover {
-            background-color: #5409DA;
+        .btn-outline-primary, .btn-outline-danger {
+            border-radius: 8px;
         }
 
-        textarea.form-control {
-            resize: none;
+        video, canvas {
+            border: 2px solid #5409DA;
+            border-radius: 8px;
+        }
+
+        .photo-preview img,
+        .video-preview video {
+            width: 100px;
+            height: auto;
+            border: 2px solid #5409DA;
+            border-radius: 8px;
+        }
+
+        .photo-preview,
+        .video-preview {
+            gap: 10px;
         }
     </style>
 </head>
 
 <body>
- <?php include 'components/topnav.php'; ?>
-<h2>Return Mobile - IMEI: <?php echo htmlspecialchars($imei); ?></h2>
+<?php include 'components/topnav.php'; ?>
+<h2>Return Mobile - IMEI: <?= htmlspecialchars($imei); ?></h2>
 
 <div class="form-container">
-     <form action="backend/insertReturn.php" method="POST" enctype="multipart/form-data">
-        <input type="hidden" name="imei" value="<?php echo htmlspecialchars($imei); ?>">
+    <form action="backend/insertReturn.php" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="imei" value="<?= htmlspecialchars($imei); ?>">
 
-        <!-- 🔥 Return Photos -->
+        <!-- Return Photos -->
         <div class="mb-3">
-            <label class="form-label">Return Photos (Multiple) *</label>
-            <input type="file" name="return_photo[]" multiple accept="image/*" class="form-control" required>
+            <label class="form-label">Return Photos *</label>
+            <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-outline-primary" onclick="openPhotoCamera()">📷 Camera</button>
+                <button type="button" class="btn btn-outline-danger" onclick="clearPhotos()">❌ Clear</button>
+            </div>
+            <input type="file" name="return_photo[]" accept="image/*" multiple class="form-control">
+            <div id="photoPreview" class="photo-preview d-flex flex-wrap mt-2"></div>
+            <input type="hidden" name="captured_photos" id="capturedPhotosInput">
         </div>
 
-        <!-- 🔥 Return Verification Video -->
-        <div class="mb-3">
-            <label class="form-label">Return Verification Video (MP4) *</label>
-            <input type="file" name="return_verification" accept="video/mp4" class="form-control" required>
+        <div id="photoCamera" style="display:none;">
+            <video id="photoVideo" width="350" height="250" autoplay></video><br>
+            <button class="btn btn-success mt-2" type="button" onclick="capturePhoto()">📸 Capture Photo</button>
+            <button class="btn btn-secondary mt-2" type="button" onclick="closePhotoCamera()">Close</button>
         </div>
 
-        <!-- 🔥 Return Description -->
+        <!-- Return Verification Video -->
         <div class="mb-3">
+            <label class="form-label">Return Verification Video *</label>
+            <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-outline-primary" onclick="openVideoCamera()">🎥 Open Camera</button>
+                <button type="button" class="btn btn-outline-danger" onclick="clearRecordedVideos()">❌ Clear</button>
+            </div>
+            <input type="file" name="return_verification" accept="video/mp4" class="form-control">
+            <div id="videoPreview" class="video-preview d-flex flex-wrap mt-2"></div>
+            <input type="hidden" name="captured_videos" id="capturedVideosInput">
+        </div>
+
+        <div id="videoCamera" style="display:none;">
+            <video id="recordVideo" width="350" height="250" autoplay muted></video><br>
+            <button class="btn btn-success mt-2" type="button" onclick="startRecording()">⏺️ Start Recording</button>
+            <button class="btn btn-danger mt-2" type="button" onclick="stopRecording()">⏹️ Stop</button>
+            <button class="btn btn-secondary mt-2" type="button" onclick="closeVideoCamera()">Close</button>
+        </div>
+
+        <!-- Return Description -->
+        <div class="mb-3 mt-4">
             <label class="form-label">Return Description *</label>
-            <textarea name="return_description" class="form-control" rows="4" placeholder="Describe the reason for return..." required></textarea>
+            <textarea name="return_description" class="form-control" rows="4" placeholder="Describe reason for return..." required></textarea>
         </div>
 
-        <button type="submit" name="submit" class="btn btn-primary w-100">Complete Return</button>
+        <button type="submit" class="btn btn-primary w-100">Complete Return</button>
     </form>
 </div>
 
+<canvas id="photoCanvas" width="350" height="250" style="display:none;"></canvas>
+
+<!-- JavaScript -->
+<script>
+let photoStream, videoStream, mediaRecorder, recordedBlobs = [];
+const capturedPhotos = [];
+
+function openPhotoCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+        photoStream = stream;
+        document.getElementById('photoVideo').srcObject = stream;
+        document.getElementById('photoCamera').style.display = 'block';
+    });
+}
+
+function capturePhoto() {
+    const canvas = document.getElementById('photoCanvas');
+    const context = canvas.getContext('2d');
+    context.drawImage(document.getElementById('photoVideo'), 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/png');
+
+    capturedPhotos.push(dataUrl);
+    document.getElementById('capturedPhotosInput').value = capturedPhotos.join("|");
+
+    const img = new Image();
+    img.src = dataUrl;
+    document.getElementById('photoPreview').appendChild(img);
+}
+
+function closePhotoCamera() {
+    if (photoStream) photoStream.getTracks().forEach(track => track.stop());
+    document.getElementById('photoCamera').style.display = 'none';
+}
+
+function clearPhotos() {
+    capturedPhotos.length = 0;
+    document.getElementById('photoPreview').innerHTML = '';
+    document.getElementById('capturedPhotosInput').value = '';
+}
+
+function openVideoCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        videoStream = stream;
+        document.getElementById('recordVideo').srcObject = stream;
+        document.getElementById('videoCamera').style.display = 'block';
+    });
+}
+
+function startRecording() {
+    recordedBlobs = [];
+    mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm' });
+
+    mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) recordedBlobs.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const preview = document.getElementById('videoPreview');
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        preview.appendChild(video);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            document.getElementById('capturedVideosInput').value = JSON.stringify([reader.result]);
+        };
+        reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+}
+
+function stopRecording() {
+    mediaRecorder.stop();
+}
+
+function closeVideoCamera() {
+    if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+    document.getElementById('videoCamera').style.display = 'none';
+}
+
+function clearRecordedVideos() {
+    document.getElementById('videoPreview').innerHTML = '';
+    document.getElementById('capturedVideosInput').value = '';
+}
+</script>
 </body>
 </html>

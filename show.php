@@ -66,7 +66,7 @@ foreach ($files->getFiles() as $file) {
     </style>
 </head>
 <body>
-
+<?php include 'components/navbar.php'; ?>
 <?php include 'components/topnav.php'; ?>
 
 <div class="container">

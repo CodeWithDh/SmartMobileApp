@@ -1,137 +1,202 @@
 <?php
-require '../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 require 'db.php';
 
 use Mpdf\Mpdf;
+use Google\Client;
+use Google\Service\Drive;
 
-if (!isset($_GET['imei'])) {
-    die("❌ IMEI missing.");
-}
+$imei = $_GET['imei'] ?? die("IMEI not provided");
 
-$imei = mysqli_real_escape_string($conn, $_GET['imei']);
+// 🔍 Fetch data from DB
 $sql = "SELECT * FROM purchased_mobiles WHERE IMEI = '$imei'";
 $result = mysqli_query($conn, $sql);
-
 if (!$result || mysqli_num_rows($result) == 0) {
-    die("❌ IMEI not found.");
+    die("IMEI not found.");
+}
+$row = mysqli_fetch_assoc($result);
+$imeiFolderId = $row['drive_folder_id'];
+
+// 🔐 Google Client
+$client = new Client();
+$client->setAuthConfig('credentials.json');
+$client->addScope(Drive::DRIVE);
+$service = new Drive($client);
+
+// 🧠 Helper
+function downloadDriveImage($service, $fileId) {
+    $response = $service->files->get($fileId, ['alt' => 'media']);
+    $content = $response->getBody()->getContents();
+    $tmp = tempnam(sys_get_temp_dir(), 'img_');
+    file_put_contents($tmp, $content);
+    return $tmp;
 }
 
-$data = mysqli_fetch_assoc($result);
+// ✅ Init mPDF
+$mpdf = new Mpdf([
+    'format' => 'A4',
+    'margin_top' => 50,
+    'margin_bottom' => 20,
+    'margin_header' => 10,
+    'margin_footer' => 10,
+]);
 
-// Format dates
-$purchaseDate = date('d-m-Y', strtotime($data['purchase_date']));
-$sellDate = isset($data['sell_date']) ? date('d-m-Y', strtotime($data['sell_date'])) : 'N/A';
+$mpdf->SetWatermarkText('SmartMobileApp');
+$mpdf->showWatermarkText = true;
+$mpdf->watermarkTextAlpha = 0.05;
 
-// Decode photo arrays
-$sellerPhotos = json_decode($data['seller_photo'] ?? '[]', true);
-$buyerPhotos = json_decode($data['buyer_photo'] ?? '[]', true);
-
-// Start HTML buffer
-ob_start();
-?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {
-            font-family: sans-serif;
-            font-size: 12px;
-        }
-        h2 {
-            background-color: #5409DA;
-            color: white;
-            padding: 8px;
-            border-radius: 5px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        td, th {
-            padding: 6px;
-            border: 1px solid #ccc;
-        }
-        .photos img {
-            height: 100px;
-            margin: 5px;
-            border: 1px solid #999;
-        }
-        .section {
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-
-<h2>Seller Details</h2>
-<table>
-    <tr><td><strong>Name:</strong></td><td><?= htmlspecialchars($data['seller_name']) ?></td></tr>
-    <tr><td><strong>Mobile:</strong></td><td><?= htmlspecialchars($data['seller_mobile']) ?></td></tr>
-    <tr><td><strong>Purchase Price:</strong></td><td>₹<?= htmlspecialchars($data['purchase_price']) ?></td></tr>
-    <tr><td><strong>Purchase Date:</strong></td><td><?= $purchaseDate ?></td></tr>
-</table>
-
-<?php if (!empty($sellerPhotos)) : ?>
-<div class="photos">
-    <?php foreach ($sellerPhotos as $link): ?>
-        <img src="<?= htmlspecialchars($link) ?>" alt="Seller Photo">
-    <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
-<div class="section">
-    <h2>Buyer Details</h2>
-    <table>
-        <tr><td><strong>Name:</strong></td><td><?= htmlspecialchars($data['buyer_name']) ?></td></tr>
-        <tr><td><strong>Mobile:</strong></td><td><?= htmlspecialchars($data['buyer_mobile']) ?></td></tr>
-        <tr><td><strong>Sold Price:</strong></td><td>₹<?= htmlspecialchars($data['sold_price']) ?></td></tr>
-        <tr><td><strong>Sell Date:</strong></td><td><?= $sellDate ?></td></tr>
-        <tr><td><strong>Verification Video:</strong></td>
-            <td>
-                <?php if (!empty($data['buyer_verification'])): ?>
-                    <a href="<?= htmlspecialchars($data['buyer_verification']) ?>" target="_blank">Watch Video</a>
-                <?php else: ?>
-                    N/A
-                <?php endif; ?>
-            </td>
-        </tr>
-    </table>
-
-    <?php if (!empty($buyerPhotos)) : ?>
-        <div class="photos">
-            <?php foreach ($buyerPhotos as $link): ?>
-                <img src="<?= htmlspecialchars($link) ?>" alt="Buyer Photo">
-            <?php endforeach; ?>
+// ✅ Header & Footer
+$mpdf->SetHTMLHeader('
+<div style="background-color:#fff; border-bottom:2px solid #5409DA; padding: 10px 0;">
+    <div style="display: flex; align-items:center;">
+        <div style="flex:1;"><img src="../assets/logo.png" height="60"></div>
+        <div style="flex:3; text-align:right;">
+            <div style="font-size:22px; font-weight: bold; color:#5409DA;">SmartMobileApp</div>
+            <div style="font-size:14px; color:#4E71FF;">Sale Invoice</div>
+            <div style="font-size:12px;">IMEI: ' . $imei . '</div>
+            <div style="font-size:12px;">Date: ' . date("d-m-Y") . '</div>
         </div>
-    <?php endif; ?>
+    </div>
 </div>
+');
 
-<h2>Mobile Details</h2>
-<table>
-    <tr><td><strong>Brand:</strong></td><td><?= htmlspecialchars($data['brand']) ?></td></tr>
-    <tr><td><strong>Model:</strong></td><td><?= htmlspecialchars($data['model']) ?></td></tr>
-    <tr><td><strong>IMEI:</strong></td><td><?= htmlspecialchars($data['IMEI']) ?></td></tr>
-</table>
+$mpdf->SetHTMLFooter('
+<div style="text-align:center; font-size:10px; color:#4E71FF;">
+    Generated by SmartMobileApp | Page {PAGENO}
+</div>');
 
-</body>
-</html>
+// ✅ CSS
+$style = '
+body { font-family: sans-serif; color: #222; }
+h1, h2 { color: #5409DA; margin-top: 20px; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
+th, td { border: 1px solid #5409DA; padding: 8px; font-size: 12px; }
+th { background-color: #5409DA; color: white; font-weight: bold; }
+.image-grid { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 20px 0; }
+.image-grid img { width: 120px; border: 2px solid #5409DA; border-radius: 8px; }
+.footer-note { font-style: italic; font-size: 11px; color: #4E71FF; }
+';
 
-<?php
-$html = ob_get_clean();
+$html = '<h1>Mobile Sale Summary</h1>';
 
-// ✅ Generate PDF using mPDF
-$mpdf = new Mpdf();
+$html .= '<h2>Product Information</h2><table>';
+$html .= '<tr><th>IMEI</th><td>' . htmlspecialchars($row['IMEI']) . '</td></tr>';
+$html .= '<tr><th>Mobile Name</th><td>' . htmlspecialchars($row['mobile_name']) . '</td></tr>';
+$html .= '</table>';
+
+$html .= '<h2>Seller Details</h2><table>';
+$html .= '<tr><th>Name</th><td>' . htmlspecialchars($row['seller_name']) . '</td></tr>';
+$html .= '<tr><th>Mobile</th><td>' . htmlspecialchars($row['seller_mobile']) . '</td></tr>';
+$html .= '<tr><th>Purchase Price</th><td>₹ ' . htmlspecialchars($row['purchase_price']) . '</td></tr>';
+$html .= '<tr><th>Purchase Date</th><td>' . date("d-m-Y", strtotime($row['purchase_date'])) . '</td></tr>';
+$html .= '</table>';
+
+$html .= '<div class="image-grid">';
+$sellerPhotos = json_decode($row['seller_photo'], true) ?? [];
+foreach ($sellerPhotos as $url) {
+    if (preg_match('/\/d\/(.*?)\//', $url, $m)) {
+        $img = downloadDriveImage($service, $m[1]);
+        $b64 = base64_encode(file_get_contents($img));
+        $mime = mime_content_type($img);
+        unlink($img);
+        $html .= '<img src="data:' . $mime . ';base64,' . $b64 . '">';
+    }
+}
+$html .= '</div>';
+
+$html .= '<h2>Buyer Details</h2><table>';
+$html .= '<tr><th>Name</th><td>' . htmlspecialchars($row['buyer_name']) . '</td></tr>';
+$html .= '<tr><th>Mobile</th><td>' . htmlspecialchars($row['buyer_mobile']) . '</td></tr>';
+$html .= '<tr><th>Sold Price</th><td>₹ ' . htmlspecialchars($row['sold_price']) . '</td></tr>';
+$html .= '<tr><th>Sold Date</th><td>' . date("d-m-Y", strtotime($row['sell_date'])) . '</td></tr>';
+$html .= '</table>';
+
+$html .= '<div class="image-grid">';
+$buyerPhotos = json_decode($row['buyer_photo'], true) ?? [];
+foreach ($buyerPhotos as $url) {
+    if (preg_match('/\/d\/(.*?)\//', $url, $m)) {
+        $img = downloadDriveImage($service, $m[1]);
+        $b64 = base64_encode(file_get_contents($img));
+        $mime = mime_content_type($img);
+        unlink($img);
+        $html .= '<img src="data:' . $mime . ';base64,' . $b64 . '">';
+    }
+}
+$html .= '</div>';
+
+$html .= '<h2>Verification Videos</h2><table>';
+$html .= '<tr><th>Buyer Verification</th><td><a href="' . htmlspecialchars($row['buyer_verification']) . '" target="_blank">View Video</a></td></tr>';
+$html .= '<tr><th>Seller Verification</th><td><a href="' . htmlspecialchars($row['seller_verification_video']) . '" target="_blank">View Video</a></td></tr>';
+$html .= '</table>';
+
+// ✅ Optional: Return Section (only if returned)
+if (!empty($row['return_description'])) {
+    $html .= '<h2>Return Details</h2><table>';
+    $html .= '<tr><th>Return Description</th><td>' . htmlspecialchars($row['return_description']) . '</td></tr>';
+    $html .= '<tr><th>Return Date</th><td>' . date("d-m-Y", strtotime($row['return_date'])) . '</td></tr>';
+    $html .= '<tr><th>Return Verification</th><td><a href="' . htmlspecialchars($row['return_verification']) . '" target="_blank">View Video</a></td></tr>';
+    $html .= '</table>';
+
+    $html .= '<div class="image-grid">';
+    $returnPhotos = json_decode($row['return_photo'], true) ?? [];
+    foreach ($returnPhotos as $url) {
+        if (preg_match('/\/d\/(.*?)\//', $url, $m)) {
+            $img = downloadDriveImage($service, $m[1]);
+            $b64 = base64_encode(file_get_contents($img));
+            $mime = mime_content_type($img);
+            unlink($img);
+            $html .= '<img src="data:' . $mime . ';base64,' . $b64 . '">';
+        }
+    }
+    $html .= '</div>';
+}
+
+$html .= '<p class="footer-note">This document is auto-generated by SmartMobileApp. Thank you!</p>';
+
+// ✅ Save PDF locally
+$pdfName = "Mobile_Sale_" . $imei . ".pdf";
+$pdfPath = __DIR__ . '/../temp/' . $pdfName;
+if (!file_exists(dirname($pdfPath))) mkdir(dirname($pdfPath), 0777, true);
+
+$mpdf->WriteHTML($style, \Mpdf\HTMLParserMode::HEADER_CSS);
 $mpdf->WriteHTML($html);
+$mpdf->Output($pdfPath, 'F');
 
-// ✅ Save PDF to server (optional) or output directly
-$pdfOutputPath = __DIR__ . "/pdfs/SELL_" . $imei . ".pdf";
-$mpdf->Output($pdfOutputPath, \Mpdf\Output\Destination::FILE);
+// ✅ Upload/Replace in Google Drive
+$existingFile = $service->files->listFiles([
+    'q' => "'$imeiFolderId' in parents and name = '$pdfName'",
+    'fields' => 'files(id, name)',
+]);
 
-// ✅ Redirect or force download
-header("Content-type: application/pdf");
-header("Content-Disposition: inline; filename=SELL_$imei.pdf");
-readfile($pdfOutputPath);
+$pdfContent = file_get_contents($pdfPath);
+if (count($existingFile->getFiles()) > 0) {
+    $fileId = $existingFile->getFiles()[0]->getId();
+    $service->files->update($fileId, new Drive\DriveFile(), [
+        'data' => $pdfContent,
+        'mimeType' => 'application/pdf',
+        'uploadType' => 'media',
+    ]);
+    $uploadedId = $fileId;
+} else {
+    $newFile = $service->files->create(new Drive\DriveFile([
+        'name' => $pdfName,
+        'parents' => [$imeiFolderId]
+    ]), [
+        'data' => $pdfContent,
+        'mimeType' => 'application/pdf',
+        'uploadType' => 'multipart',
+        'fields' => 'id'
+    ]);
+    $uploadedId = $newFile->id;
+}
+
+$service->permissions->create($uploadedId, new Drive\Permission([
+    'type' => 'anyone',
+    'role' => 'reader'
+]));
+
+unlink($pdfPath);
+mysqli_close($conn);
+
+header("Location: ../success.php?imei=$imei&pdf=https://drive.google.com/file/d/$uploadedId/view");
 exit;
-?>
