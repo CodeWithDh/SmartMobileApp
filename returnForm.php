@@ -72,7 +72,7 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
 </head>
 
 <body>
-
+ <?php include 'components/topnav.php'; ?>
 <h2>Return Mobile - IMEI: <?php echo htmlspecialchars($imei); ?></h2>
 
 <div class="form-container">

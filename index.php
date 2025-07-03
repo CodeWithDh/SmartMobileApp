@@ -80,7 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
         }
 
         .logo img {
-            width: 160px;
+            width: 200px;
             max-width: 100%;
             height: auto;
         }

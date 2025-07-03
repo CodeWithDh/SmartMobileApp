@@ -11,6 +11,9 @@ $soldCount = mysqli_fetch_assoc($soldResult)['count'];
 
 $returnResult = mysqli_query($conn, "SELECT COUNT(*) AS count FROM purchased_mobiles WHERE status = 'returned'");
 $returnCount = mysqli_fetch_assoc($returnResult)['count'];
+
+// ✅ Stock is Purchased + Returned
+$stockCount = $purchasedCount + $returnCount;
 ?>
 
 <!DOCTYPE html>
@@ -34,63 +37,60 @@ $returnCount = mysqli_fetch_assoc($returnResult)['count'];
         }
 
         .top-section {
-    /* margin-left: 260px; */
     margin-top: 20px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
 }
 
+/* ✅ Common Card Styling */
 .top-card {
+    flex: 1;
     background: white;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border-top: 5px solid #5409DA;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-top: 4px solid #5409DA;
     transition: transform 0.3s ease;
     text-align: center;
 }
-.top-card {
-    padding: 18px; /* for all */
-}
 
 .top-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-4px);
 }
 
 .top-card h4 {
     color: #5409DA;
-    margin-bottom: 10px;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-.top-card p {
-    color: #333;
-    margin: 0;
-    font-size: 14px;
-}
-
-.top-card .count {
-    font-size: 28px;
-    color: #5409DA;
-    font-weight: bold;
-    margin: 10px 0;
+    margin-bottom: 18px;
+    font-size: 18px;
 }
 
 .top-card a {
     background-color: #5409DA;
     color: white;
-    padding: 6px 16px;
+    padding: 6px 18px;
     border-radius: 8px;
     text-decoration: none;
     display: inline-block;
-    margin-top: 10px;
+    margin-top: 18px;
+    font-size: 13px;
 }
 
 .top-card a:hover {
     background-color: #4E71FF;
 }
+
+/* ✅ Summary Specific Styling */
+.summary-card .summary-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;  /* ✅ Adds vertical space between counts */
+}
+
+.count-box a{
+    width:150px;
+}
+
 
         /* 🔥 Bottom Section */
         .bottom-section {
@@ -239,6 +239,7 @@ $returnCount = mysqli_fetch_assoc($returnResult)['count'];
 </head>
 
 <body>
+    <?php include 'components/topnav.php'; ?>
 
 <div class="content">
     
@@ -268,21 +269,29 @@ $returnCount = mysqli_fetch_assoc($returnResult)['count'];
     </div>
 
     <!-- Count Summary Card -->
-    <div class="top-card">
-        <h4>Summary</h4>
-        <div style="line-height: 1.8;">
-            <p style="margin: 0; font-size: 14px;">
-                📦 <b>Purchased:</b> <?= $purchasedCount ?>
-            </p>
-            <p style="margin: 0; font-size: 14px;">
-                📈 <b>Sold:</b> <?= $soldCount ?>
-            </p>
-            <p style="margin: 0; font-size: 14px;">
-                🔄 <b>Returned:</b> <?= $returnCount ?>
-            </p>
+<div class="top-card summary-card">
+    <h4>📊 Summary</h4>
+    <div class="summary-details">
+        <div class="count-box">
+            <a href="purchasedList.php" >
+                📦 <b>Stock:</b> <?= $stockCount ?>
+            </a>
         </div>
-        <a href="purchasedList.php">View All</a>
+        <div class="count-box">
+            <a href="soldList.php">
+                📈 <b>Sold:</b> <?= $soldCount ?>
+            </a>
+        </div>
+        <div class="count-box">
+            <a href="returnList.php" >
+                🔄 <b>Returned:</b> <?= $returnCount ?>
+            </a>
+        </div>
     </div>
+</div>
+
+
+
 
 </div>
 

@@ -13,7 +13,7 @@
             background-color: #fff;
             font-family: 'Segoe UI', sans-serif;
             margin: 0;
-            overflow: hidden;
+            overflow: auto;
             transition: margin-left 0.3s ease;
         }
 
@@ -93,7 +93,7 @@
             margin: 0 auto;
             background-color: white;
             border-radius: 10px;
-            overflow: hidden;
+            overflow: scroll;
             box-shadow: 0 0 10px rgba(0,0,0,0.15);
         }
 
@@ -133,7 +133,7 @@
 </head>
 
 <body>
-
+ <?php include 'components/topnav.php'; ?>
 <div class="content">
     <h2 style="text-align: center; color: white;">Purchased Mobiles List</h2>
 

@@ -37,6 +37,7 @@ require 'backend/db.php';
             border-collapse: collapse;
             width: 90%;
             margin: auto;
+            overflow:scroll;
             background-color: white;
             box-shadow: 0 0 8px rgba(0,0,0,0.1);
         }
@@ -76,7 +77,7 @@ require 'backend/db.php';
     </style>
 </head>
 <body>
-
+ <?php include 'components/topnav.php'; ?>
 <div class="content">
     <h2>Sold Mobiles (Eligible for Return)</h2>
 

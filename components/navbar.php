@@ -91,6 +91,11 @@
     .sidebar.hide ~ .content {
         margin-left: 0;
     }
+    .nav-logo img {
+        width: 200px;
+        height: 90px;
+        cursor: pointer;
+    }
 </style>
 
 <?php

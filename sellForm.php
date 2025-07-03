@@ -9,103 +9,215 @@ $imei = isset($_POST['imei']) ? $_POST['imei'] : '';
     <meta charset="UTF-8">
     <title>Sell Mobile</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 
     <style>
-       /* 🔥 Page Background */
-body {
-    background-color: white;
-    font-family: 'Segoe UI', sans-serif;
-    margin: 0;
-    padding: 20px;
-    transition: margin-left 0.3s ease;
-}
+        body {
+            background-color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
 
-/* 🔥 Form Container Styling */
-.form-container {
-    margin-left: 260px;
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    border-top: 5px solid #5409DA;
-    transition: margin-left 0.3s ease;
-}
+        .form-container {
+            margin-left: 260px;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            border-top: 5px solid #5409DA;
+            transition: margin-left 0.3s ease;
+        }
 
-/* 🔥 Responsive to Sidebar Hide */
-.sidebar.hide ~ .form-container {
-    margin-left: 0;
-}
+        .form-label {
+            color: #5409DA;
+            font-weight: 500;
+        }
 
-/* 🔥 Labels */
-.form-label {
-    color: #5409DA;
-    font-weight: 500;
-}
+        .btn-primary {
+            background-color: #5409DA;
+            border: none;
+        }
 
-/* 🔥 Primary Buttons */
-.btn-primary {
-    background-color: #5409DA;
-    border: none;
-}
+        .btn-primary:hover {
+            background-color: #4E71FF;
+        }
 
-.btn-primary:hover {
-    background-color: #4E71FF;
-}
+        .btn-outline-primary, .btn-outline-secondary {
+            border-radius: 8px;
+        }
 
-/* 🔥 Outline Buttons */
-.btn-outline-primary, .btn-outline-secondary {
-    border-radius: 8px;
-}
+        video {
+            border: 2px solid #5409DA;
+            border-radius: 8px;
+        }
 
-/* 🔥 Video Preview Box */
-video {
-    border: 2px solid #5409DA;
-    border-radius: 8px;
-}
-
+        .photo-preview img, .video-preview video {
+            width: 100px;
+            height: auto;
+            border: 2px solid #5409DA;
+            border-radius: 8px;
+        }
     </style>
 </head>
 
 <body>
-
-    <div class="form-container">
-    
+<?php include 'components/topnav.php'; ?>
+<div class="form-container">
     <h2>Sell Mobile - IMEI: <?php echo htmlspecialchars($imei); ?></h2>
-        <form action="backend/insertSell.php" method="POST" enctype="multipart/form-data">
+
+    <form action="backend/insertSell.php" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="imei" value="<?php echo htmlspecialchars($imei); ?>">
 
-        <!-- 🔥 Buyer Name -->
+        <!-- Buyer Name -->
         <div class="mb-3">
             <label class="form-label">Buyer Name *</label>
-            <input type="text" name="buyer_name" class="form-control" placeholder="Enter buyer name" required>
+            <input type="text" name="buyer_name" class="form-control" required>
         </div>
 
-        <!-- 🔥 Buyer Mobile -->
+        <!-- Buyer Mobile -->
         <div class="mb-3">
             <label class="form-label">Buyer Mobile *</label>
-            <input type="text" name="buyer_mobile" class="form-control" placeholder="Enter buyer mobile" required>
+            <input type="text" name="buyer_mobile" class="form-control" required>
         </div>
 
-        <!-- 🔥 Buyer Photos -->
+        <!-- Buyer Photos -->
         <div class="mb-3">
-            <label class="form-label">Buyer Photos (Multiple) *</label>
-            <input type="file" name="buyer_photo[]" multiple accept="image/*" class="form-control" required>
+            <label class="form-label">Buyer Photos *</label><br>
+            <button type="button" class="btn btn-outline-primary" onclick="openPhotoCamera()">📷 Camera</button>
+            <input type="file" name="buyer_photo[]" accept="image/*" multiple class="form-control mt-2">
+            <button type="button" class="btn btn-outline-danger mt-2" onclick="clearPhotos()">❌ Clear Photos</button>
+            <div id="photoPreview" class="photo-preview mt-2 d-flex gap-2 flex-wrap"></div>
+            <input type="hidden" name="captured_photos" id="capturedPhotosInput">
         </div>
 
-        <!-- 🔥 Buyer Verification Video -->
-        <div class="mb-3">
-            <label class="form-label">Buyer Verification Video (MP4) *</label>
-            <input type="file" name="buyer_verification" accept="video/mp4" class="form-control" required>
+        <div id="photoCamera" style="display:none;">
+            <video id="photoVideo" width="350" height="250" autoplay></video><br>
+            <button class="btn btn-success mt-2" type="button" onclick="capturePhoto()">📸 Capture Photo</button>
+            <button class="btn btn-secondary mt-2" type="button" onclick="closePhotoCamera()">Close</button>
         </div>
+
+        <!-- Buyer Verification Video -->
         <div class="mb-3">
-    <label class="form-label">Sold Price *</label>
-    <input type="number" name="sold_price" step="0.01" class="form-control" placeholder="Enter selling price" required>
-</div>
+            <label class="form-label">Buyer Verification Video *</label><br>
+            <button type="button" class="btn btn-outline-primary" onclick="openVideoCamera()">🎥 Open Camera</button>
+            <button type="button" class="btn btn-outline-danger" onclick="clearRecordedVideos()">❌ Clear Videos</button>
+            <div id="videoPreview" class="video-preview mt-2 d-flex gap-2 flex-wrap"></div>
+            <input type="hidden" name="captured_videos" id="capturedVideosInput">
+            <input type="file" id="videoInput" name="buyer_verification" style="display:none;">
+        </div>
 
+        <div id="videoCamera" style="display:none;">
+            <video id="recordVideo" width="350" height="250" autoplay muted></video><br>
+            <button class="btn btn-success mt-2" type="button" onclick="startRecording()">⏺️ Start Recording</button>
+            <button class="btn btn-danger mt-2" type="button" onclick="stopRecording()">⏹️ Stop Recording</button>
+            <button class="btn btn-secondary mt-2" type="button" onclick="closeVideoCamera()">Close</button>
+        </div>
 
-        <button type="submit" name="submit" class="btn btn-primary w-100">Complete Sale</button>
+        <!-- Price -->
+        <div class="mb-3">
+            <label class="form-label">Sold Price *</label>
+            <input type="number" name="sold_price" step="0.01" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Complete Sale</button>
     </form>
 </div>
 
+<canvas id="photoCanvas" width="350" height="250" style="display:none;"></canvas>
+
+<script>
+    // === Camera for Photos ===
+    let photoStream;
+    function openPhotoCamera() {
+        navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
+            photoStream = stream;
+            document.getElementById("photoCamera").style.display = "block";
+            document.getElementById("photoVideo").srcObject = stream;
+        });
+    }
+
+    function capturePhoto() {
+        const video = document.getElementById("photoVideo");
+        const canvas = document.getElementById("photoCanvas");
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataURL = canvas.toDataURL("image/png");
+
+        const preview = document.getElementById("photoPreview");
+        const img = new Image();
+        img.src = dataURL;
+        preview.appendChild(img);
+
+        let captured = document.getElementById("capturedPhotosInput").value;
+        document.getElementById("capturedPhotosInput").value = captured + dataURL + "|";
+    }
+
+    function closePhotoCamera() {
+        if (photoStream) {
+            photoStream.getTracks().forEach(track => track.stop());
+        }
+        document.getElementById("photoCamera").style.display = "none";
+    }
+
+    function clearPhotos() {
+        document.getElementById("photoPreview").innerHTML = "";
+        document.getElementById("capturedPhotosInput").value = "";
+    }
+
+    // === Video Recorder ===
+    let videoStream, mediaRecorder, recordedBlobs = [];
+
+    function openVideoCamera() {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(function (stream) {
+            videoStream = stream;
+            document.getElementById("videoCamera").style.display = "block";
+            document.getElementById("recordVideo").srcObject = stream;
+        });
+    }
+
+    function startRecording() {
+        recordedBlobs = [];
+        mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm' });
+
+        mediaRecorder.ondataavailable = function (e) {
+            if (e.data.size > 0) recordedBlobs.push(e.data);
+        };
+
+        mediaRecorder.onstop = function () {
+            const blob = new Blob(recordedBlobs, { type: 'video/mp4' });
+            const file = new File([blob], 'BuyerVerification.mp4', { type: 'video/mp4' });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById("videoInput").files = dt.files;
+
+            const url = URL.createObjectURL(blob);
+            const preview = document.getElementById("videoPreview");
+            const video = document.createElement("video");
+            video.src = url;
+            video.controls = true;
+            preview.appendChild(video);
+        };
+
+        mediaRecorder.start();
+    }
+
+    function stopRecording() {
+        mediaRecorder.stop();
+    }
+
+    function closeVideoCamera() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+        document.getElementById("videoCamera").style.display = "none";
+    }
+
+    function clearRecordedVideos() {
+        document.getElementById("videoPreview").innerHTML = "";
+        document.getElementById("capturedVideosInput").value = "";
+    }
+</script>
 </body>
 </html>

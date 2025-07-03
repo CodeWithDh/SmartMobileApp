@@ -69,8 +69,9 @@ $pdfLabel = match($type) {
     </style>
 </head>
 <body>
-
+ <?php include 'components/topnav.php'; ?>
 <div class="success-container">
+
     <h1><?= $message ?></h1>
     <p><b>IMEI:</b> <?= htmlspecialchars($imei) ?></p>
 

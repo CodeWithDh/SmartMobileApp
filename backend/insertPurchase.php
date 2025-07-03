@@ -2,12 +2,6 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require 'db.php';
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
-
-
-
-
 use Google\Client;
 use Google\Service\Drive;
 
@@ -35,7 +29,7 @@ try {
     $folderMetadata = new Drive\DriveFile([
         'name' => $imei,
         'mimeType' => 'application/vnd.google-apps.folder',
-        'parents' => ['1Ah8EfWG-SpHPxZlggOk8VCCqfY_Q73W5'] // Change this to your Drive parent folder ID
+        'parents' => ['1Ah8EfWG-SpHPxZlggOk8VCCqfY_Q73W5'] // Change to your parent folder ID
     ]);
 
     $folder = $service->files->create($folderMetadata, ['fields' => 'id']);
@@ -48,118 +42,181 @@ try {
     ]);
     $service->permissions->create($imeiFolderId, $permission);
 
-    // ✅ Upload Seller Photos
+    // ✅ Upload Seller Photos (File + Camera)
     $sellerPhotoLinks = [];
     $photoCount = 1;
 
-    foreach ($_FILES['seller_photo']['tmp_name'] as $index => $tmpName) {
-        $fileName = 'sellerPic' . $photoCount . '.' . pathinfo($_FILES['seller_photo']['name'][$index], PATHINFO_EXTENSION);
-        $mimeType = mime_content_type($tmpName);
+    // ➕ From file uploads
+    if (!empty($_FILES['seller_photos']['tmp_name'][0])) {
+        foreach ($_FILES['seller_photos']['tmp_name'] as $index => $tmpName) {
+            $fileName = 'sellerPic' . $photoCount . '.' . pathinfo($_FILES['seller_photos']['name'][$index], PATHINFO_EXTENSION);
+            $mimeType = mime_content_type($tmpName);
 
-        $fileMetadata = new Drive\DriveFile([
-            'name' => $fileName,
-            'parents' => [$imeiFolderId]
-        ]);
-
-        $content = file_get_contents($tmpName);
-
-        $file = $service->files->create($fileMetadata, [
-            'data' => $content,
-            'mimeType' => $mimeType,
-            'uploadType' => 'multipart',
-            'fields' => 'id'
-        ]);
-
-        $service->permissions->create($file->id, $permission);
-
-        $link = "https://drive.google.com/file/d/" . $file->id . "/view";
-        $sellerPhotoLinks[] = $link;
-        $photoCount++;
-    }
-
-    // ✅ Upload Verification Video (CHUNK Upload)
-
-    $videoTmp = $_FILES['verification_video']['tmp_name'];
-    $fileSize = filesize($videoTmp);
-    $fileName = 'SellerVerification.mp4';
-    $mimeType = mime_content_type($videoTmp);
-
-    // ✔️ Step 1: Create Upload Session
-    $token = $client->fetchAccessTokenWithAssertion();
-
-    $response = $client->getHttpClient()->request(
-        'POST',
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
-        [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $token['access_token'],
-                'Content-Type' => 'application/json; charset=UTF-8'
-            ],
-            'body' => json_encode([
+            $fileMetadata = new Drive\DriveFile([
                 'name' => $fileName,
                 'parents' => [$imeiFolderId]
-            ])
-        ]
-    );
+            ]);
 
-    $uploadUrl = $response->getHeaderLine('Location');
-    if (!$uploadUrl) {
-        throw new Exception("❌ Failed to obtain upload URL.");
+            $content = file_get_contents($tmpName);
+
+            $file = $service->files->create($fileMetadata, [
+                'data' => $content,
+                'mimeType' => $mimeType,
+                'uploadType' => 'multipart',
+                'fields' => 'id'
+            ]);
+
+            $service->permissions->create($file->id, $permission);
+
+            $link = "https://drive.google.com/file/d/" . $file->id . "/view";
+            $sellerPhotoLinks[] = $link;
+            $photoCount++;
+        }
     }
 
-    // ✔️ Step 2: Upload in chunks
-    $httpClient = $client->authorize();
-    $handle = fopen($videoTmp, 'rb');
-    $chunkSize = 5 * 1024 * 1024; // 5MB chunks
-    $offset = 0;
+    // ➕ From captured photos (base64)
+    if (!empty($_POST['captured_photos'])) {
+        $capturedPhotos = json_decode($_POST['captured_photos'], true);
 
-    while (!feof($handle)) {
-        $chunk = fread($handle, $chunkSize);
-        $chunkLength = strlen($chunk);
+        foreach ($capturedPhotos as $photoData) {
+            $photoContent = explode(',', $photoData)[1];
+            $decodedData = base64_decode($photoContent);
 
-        $headers = [
-            'Content-Length' => $chunkLength,
-            'Content-Range' => "bytes $offset-" . ($offset + $chunkLength - 1) . "/$fileSize"
-        ];
+            $fileName = 'sellerPic' . $photoCount . '.png';
+            $fileMetadata = new Drive\DriveFile([
+                'name' => $fileName,
+                'parents' => [$imeiFolderId]
+            ]);
 
-        $res = $httpClient->request(
-            'PUT',
-            $uploadUrl,
-            [
-                'headers' => $headers,
-                'body' => $chunk,
-            ]
-        );
+            $file = $service->files->create($fileMetadata, [
+                'data' => $decodedData,
+                'mimeType' => 'image/png',
+                'uploadType' => 'multipart',
+                'fields' => 'id'
+            ]);
 
-        $offset += $chunkLength;
+            $service->permissions->create($file->id, $permission);
+
+            $link = "https://drive.google.com/file/d/" . $file->id . "/view";
+            $sellerPhotoLinks[] = $link;
+            $photoCount++;
+        }
     }
-    fclose($handle);
 
-    $resBody = json_decode($res->getBody()->getContents(), true);
-    $videoFileId = $resBody['id'];
+    // ✅ Upload Verification Videos (File + Camera)
+    $verificationVideoLinks = [];
 
-    $service->permissions->create($videoFileId, $permission);
-    $verificationVideoLink = "https://drive.google.com/file/d/$videoFileId/view";
+    // ➕ From file uploads
+    if (!empty($_FILES['verification_video']['tmp_name'][0])) {
+        foreach ($_FILES['verification_video']['tmp_name'] as $index => $tmpName) {
+            $fileSize = filesize($tmpName);
+            $fileName = 'VerificationVideo' . ($index + 1) . '.' . pathinfo($_FILES['verification_video']['name'][$index], PATHINFO_EXTENSION);
+            $mimeType = mime_content_type($tmpName);
 
+            // ✔️ Upload using resumable
+            $token = $client->fetchAccessTokenWithAssertion();
 
+            $response = $client->getHttpClient()->request(
+                'POST',
+                'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $token['access_token'],
+                        'Content-Type' => 'application/json; charset=UTF-8'
+                    ],
+                    'body' => json_encode([
+                        'name' => $fileName,
+                        'parents' => [$imeiFolderId]
+                    ])
+                ]
+            );
+
+            $uploadUrl = $response->getHeaderLine('Location');
+            if (!$uploadUrl) {
+                throw new Exception("❌ Failed to obtain upload URL.");
+            }
+
+            $httpClient = $client->authorize();
+            $handle = fopen($tmpName, 'rb');
+            $chunkSize = 5 * 1024 * 1024;
+            $offset = 0;
+
+            while (!feof($handle)) {
+                $chunk = fread($handle, $chunkSize);
+                $chunkLength = strlen($chunk);
+
+                $headers = [
+                    'Content-Length' => $chunkLength,
+                    'Content-Range' => "bytes $offset-" . ($offset + $chunkLength - 1) . "/$fileSize"
+                ];
+
+                $res = $httpClient->request(
+                    'PUT',
+                    $uploadUrl,
+                    [
+                        'headers' => $headers,
+                        'body' => $chunk,
+                    ]
+                );
+
+                $offset += $chunkLength;
+            }
+            fclose($handle);
+
+            $resBody = json_decode($res->getBody()->getContents(), true);
+            $fileId = $resBody['id'];
+
+            $service->permissions->create($fileId, $permission);
+            $link = "https://drive.google.com/file/d/$fileId/view";
+            $verificationVideoLinks[] = $link;
+        }
+    }
+
+    // ➕ From captured videos (base64)
+    if (!empty($_POST['captured_videos'])) {
+        $capturedVideos = json_decode($_POST['captured_videos'], true);
+        $vidCount = 1;
+
+        foreach ($capturedVideos as $videoData) {
+            $videoContent = explode(',', $videoData)[1];
+            $decodedData = base64_decode($videoContent);
+
+            $fileName = 'VerificationVideoCaptured' . $vidCount . '.webm';
+            $fileMetadata = new Drive\DriveFile([
+                'name' => $fileName,
+                'parents' => [$imeiFolderId]
+            ]);
+
+            $file = $service->files->create($fileMetadata, [
+                'data' => $decodedData,
+                'mimeType' => 'video/webm',
+                'uploadType' => 'multipart',
+                'fields' => 'id'
+            ]);
+
+            $service->permissions->create($file->id, $permission);
+
+            $link = "https://drive.google.com/file/d/" . $file->id . "/view";
+            $verificationVideoLinks[] = $link;
+            $vidCount++;
+        }
+    }
 
     // ✅ Insert Into Database
-$sql = "INSERT INTO purchased_mobiles (
-    IMEI, seller_name, seller_mobile, seller_photo, seller_verification_video,
-    mobile_name, fault_description, purchase_price, drive_folder_id
-) VALUES (
-    '$imei', '$sellerName', '$sellerMobile',
-    '" . json_encode($sellerPhotoLinks) . "',
-    '$verificationVideoLink',
-    '$mobileName', '$faultDescription', '$purchase_price', '$imeiFolderId'
-)";
+    $sql = "INSERT INTO purchased_mobiles (
+        IMEI, seller_name, seller_mobile, seller_photo, seller_verification_video,
+        mobile_name, fault_description, purchase_price, drive_folder_id
+    ) VALUES (
+        '$imei', '$sellerName', '$sellerMobile',
+        '" . json_encode($sellerPhotoLinks) . "',
+        '" . json_encode($verificationVideoLinks) . "',
+        '$mobileName', '$faultDescription', '$purchase_price', '$imeiFolderId'
+    )";
 
-
-
-  if (mysqli_query($conn, $sql)) {
-    header("Location: generatePDF.php?imei=$imei");
-    exit;
-} else {
+    if (mysqli_query($conn, $sql)) {
+        header("Location: generatePDF.php?imei=$imei");
+        exit;
+    } else {
         header("Location: ../error.php?msg=" . urlencode(mysqli_error($conn)));
         exit;
     }
