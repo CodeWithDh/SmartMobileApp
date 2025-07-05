@@ -17,8 +17,14 @@ fwkh fqnq szje rife
 List of featuers 02/07/2025
 1. Setting: 
     - pass chnage 
-2. purchase date column with S.no 
-3. delete option with otp verification done
-4. Search bar done
+3. delete option with otp verification 
 5. returned mobiles data - also show purchase date with returned date
 6. view option in dashboard - view complete data with assets
+
+
+# Left-Overs
+1. camera recoded video get error 504 Gateway Timeout hws.
+2. Dashboard Table - layout , view page (Show Data)
+3. Buyer details are not visible in show.php
+4. fault is not added in php
+5. confirm buyer details get added in pdf.

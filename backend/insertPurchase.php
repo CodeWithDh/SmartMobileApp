@@ -214,16 +214,70 @@ try {
         '$mobileName', '$faultDescription', '$purchase_price', '$imeiFolderId'
     )";
 
-    if (mysqli_query($conn, $sql)) {
-        header("Location: generatePDF.php?imei=$imei");
-        exit;
-    } else {
-        header("Location: ../error.php?msg=" . urlencode(mysqli_error($conn)));
-        exit;
-    }
+   if (mysqli_query($conn, $sql)) {
+    // Generate the PDF and get public PDF URL
+    ob_start();
+    include 'generatePDF.php'; // Must end with `$publicPdfUrl` set
+    ob_end_clean();
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'status' => 'success',
+        'imei'   => $imei,
+        'pdf'    => $publicPdfUrl, // ← Make sure generatePDF.php sets this
+        'type'   => 'purchase'
+    ]);
+    exit;
+} else {
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'message' => mysqli_error($conn)
+    ]);
+    exit;
+}
 
 } catch (Exception $e) {
-    header("Location: ../error.php?msg=" . urlencode($e->getMessage()));
+    $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+
+if (!$isAjax) {
+    // ✅ Standard browser POST request — redirect normally
+    header("Location: generatePDF.php?imei=$imei");
     exit;
+}
+
+// ✅ AJAX request — internally call generatePDF.php and extract public PDF link
+
+// Generate PDF and extract link (simulate request)
+ob_start();
+include 'generatePDF.php'; // This will internally redirect
+ob_end_clean(); // Prevent it from printing HTML in AJAX
+
+// Extract IMEI folder from DB (again)
+$row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT drive_folder_id FROM purchased_mobiles WHERE IMEI = '$imei'"));
+$folderId = $row['drive_folder_id'] ?? null;
+
+$client = new Client();
+$client->setAuthConfig('credentials.json');
+$client->addScope(Drive::DRIVE);
+$service = new Drive($client);
+
+// Fetch PDF file from folder
+$pdfName = "Mobile_Sale_" . $imei . ".pdf";
+$files = $service->files->listFiles([
+    'q' => "'$folderId' in parents and name = '$pdfName'",
+    'fields' => 'files(id)'
+]);
+$pdfId = $files->getFiles()[0]->getId() ?? null;
+
+header('Content-Type: application/json');
+echo json_encode([
+    'status' => 'success',
+    'imei'   => $imei,
+    'type'   => 'purchase',
+    'pdf'    => "https://drive.google.com/file/d/$pdfId/view"
+]);
+exit;
+
 }
 ?>

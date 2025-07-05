@@ -153,10 +153,6 @@ foreach ($files->getFiles() as $file) {
 </form>
 
 
-
-
-
-
 </form>
 
     <div class="table-responsive">
